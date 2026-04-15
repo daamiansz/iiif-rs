@@ -34,7 +34,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v3
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
