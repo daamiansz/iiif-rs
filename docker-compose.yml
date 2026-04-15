@@ -1,0 +1,32 @@
+services:
+  iiif-server:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./images:/app/images
+    environment:
+      - RUST_LOG=info
+      # Server
+      - IIIF_HOST=0.0.0.0
+      - IIIF_PORT=8080
+      - IIIF_BASE_URL=http://localhost:8080
+      # Storage
+      - IIIF_STORAGE_PATH=/app/images
+      # Image limits
+      - IIIF_MAX_WIDTH=4096
+      - IIIF_MAX_HEIGHT=4096
+      - IIIF_MAX_AREA=16777216
+      - IIIF_ALLOW_UPSCALING=true
+      - IIIF_TILE_WIDTH=512
+      # Auth
+      - IIIF_AUTH_ENABLED=true
+      - IIIF_AUTH_COOKIE=iiif_access
+      - IIIF_AUTH_TOKEN_TTL=3600
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/test/info.json || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

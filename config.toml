@@ -1,0 +1,26 @@
+[server]
+host = "127.0.0.1"
+port = 8080
+base_url = "http://localhost:8080"
+
+[image]
+max_width = 4096
+max_height = 4096
+max_area = 16777216
+allow_upscaling = true
+tile_width = 512
+tile_scale_factors = [1, 2, 4, 8, 16]
+
+[storage]
+root_path = "./images"
+
+[auth]
+enabled = true
+pattern = "active"
+cookie_name = "iiif_access"
+token_ttl = 3600
+protected = ["protected"]
+
+[[auth.users]]
+username = "admin"
+password = "admin123"

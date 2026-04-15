@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/iiif-core",
+    "crates/iiif-image",
+    "crates/iiif-presentation",
+    "crates/iiif-auth",
+    "crates/iiif-search",
+    "crates/iiif-state",
+    "crates/iiif-discovery",
+    "crates/iiif-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+license = "MIT"
+repository = "https://github.com/daamiansz/iiif-rs"
+homepage = "https://github.com/daamiansz/iiif-rs"
+description = "A complete IIIF server implementing all 6 specifications in Rust"
+keywords = ["iiif", "image-server", "digital-heritage", "presentation-api", "image-api"]
+categories = ["web-programming::http-server", "multimedia::images"]
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "compression-br", "trace"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+image = "0.25"
+percent-encoding = "2"
+httpdate = "1"
+toml = "0.8"
+
+iiif-core = { path = "crates/iiif-core" }
+iiif-image = { path = "crates/iiif-image" }
+iiif-presentation = { path = "crates/iiif-presentation" }
+iiif-auth = { path = "crates/iiif-auth" }
+iiif-search = { path = "crates/iiif-search" }
+iiif-state = { path = "crates/iiif-state" }
+iiif-discovery = { path = "crates/iiif-discovery" }
+rand = "0.9"

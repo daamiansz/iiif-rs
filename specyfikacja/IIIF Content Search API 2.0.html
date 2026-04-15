@@ -1,0 +1,1438 @@
+
+<!DOCTYPE html>
+<html lang='en'><head>
+  <meta charset="utf-8">
+  <title>
+     IIIF Content Search API 2.0 —  IIIF | International Image Interoperability Framework
+  </title>
+  <meta name="description" content="IIIF is a set of open standards for delivering high-quality digital objects online at scale. It’s also the international community that makes it all work.">
+  <link rel="shortcut icon" href="/api/assets/favicon.ico">
+ <link rel="apple-touch-icon" sizes="180x180" href="/api/assets/apple-touch-icon.png">
+ <link rel="icon" type="image/png" sizes="32x32" href="/api/assets/favicon-32x32.png">
+ <link rel="icon" type="image/png" sizes="16x16" href="/api/assets/favicon-16x16.png">
+ <link rel="manifest" href="/api/assets/site.webmanifest">
+ <link rel="mask-icon" href="/api/assets/safari-pinned-tab.svg" color="#E82334">
+ <meta name="msapplication-TileColor" content="#da532c">
+ <meta name="theme-color" content="#ffffff">
+
+
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/api/assets/css/style.css">
+  <link rel="canonical" href="/api/search/2.0/" />    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZW5W9QRPH6"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-ZW5W9QRPH6');
+    </script>
+        
+
+
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<meta name="generator" content="Jekyll v4.1.1" />
+<meta property="og:title" content="IIIF Content Search API 2.0" />
+<meta property="og:locale" content="en_US" />
+<link rel="canonical" href="/api/search/2.0/" />
+<meta property="og:url" content="/api/search/2.0/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="IIIF Content Search API 2.0" />
+<meta name="twitter:site" content="@iiif_io" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","headline":"IIIF Content Search API 2.0","publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/api/assets/favicon.ico"}},"url":"/api/search/2.0/"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+<!-- add for Mastodon verification -->
+<link rel="me" href="https://glammr.us/@iiif">
+
+</head>
+<body>
+
+<section class="hero is-primary" style="background-image: linear-gradient(to bottom, rgba(0, 25, 39, 0.68), rgba(0, 25, 39, 0.68));
+  background-size: cover;
+  background-position: bottom center;
+  background-attachment: fixed;
+  ">
+  
+  <div class="hero-head">
+    <nav id="navbar" class="navbar is-transparent is-spaced">
+  <div class="container">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="https://iiif.io/">
+        <img src="/api/assets/images/logos/logo-sm.png" alt="IIIF logo" height="28">
+        <span class="brand-title">International Image Interoperability Framework</span>
+      </a>
+      <div class="navbar-burger" data-target="navbar" onclick="document.querySelector('.navbar-menu').classList.toggle('is-active');">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <div class="navbar-menu">
+      <div class="navbar-end">
+            <a class="navbar-item" href="https://iiif.io/">Home</a>
+          
+            <a class="navbar-item" href="https://iiif.io/demos">Demos</a>
+          
+            <a class="navbar-item" href="https://iiif.io/events">Events</a>
+          
+            <a class="navbar-item" href="https://iiif.io/news">News</a>
+          
+            <div class="navbar-item has-dropdown is-hoverable">
+              <a class="navbar-link"  href="https://iiif.io/get-involved">
+                Get Involved
+              </a>
+              <div class="navbar-dropdown is-boxed is-active">
+                
+                  <a class="navbar-item" href="https://iiif.io/community/">Community</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/community/consortium">Consortium</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/newsletter">Join Newsletter</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/get-involved/outreach-materials">Outreach Materials</a>
+                
+              </div>
+            </div>
+          
+            <div class="navbar-item has-dropdown is-hoverable">
+              <a class="navbar-link"  href="https://iiif.io/get-started">
+                Get Started
+              </a>
+              <div class="navbar-dropdown is-boxed is-active">
+                
+                  <a class="navbar-item" href="https://iiif.io/get-started/how-iiif-works">How IIIF Works</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/community/ambassadors/">IIIF Ambassadors</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/guides">Guides</a>
+                
+                  <a class="navbar-item" href="/api">APIs & Documentation</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/get-started/cookbook">Cookbooks</a>
+                
+                  <a class="navbar-item" href="https://iiif.io/get-started/training">Training</a>
+                
+              </div>
+            </div>
+          </div>
+    </div>
+  </div>
+</nav>
+
+  </div>
+  
+
+  <div class="hero-body container">
+
+    
+    <nav class="breadcrumb is-centered" aria-label="breadcrumbs">
+      <ul>
+        
+          <li><a href="https://iiif.io/get-started">Get Started</a></li>
+        
+          <li><a href="/api/">APIs & Documentation</a></li>
+        
+      </ul>
+    </nav>
+    
+
+    <div class="container has-text-centered">
+      
+      <h1 class="title is-size-2 is-size-3-mobile is-size-desktop is-size-1-widescreen">IIIF Content Search API 2.0</h1>
+      
+
+      
+      <p class="subtitle is-size-5"></p>
+      
+
+      
+    </div>
+  </div>
+</section>
+<section id="main">
+      
+      
+      
+
+
+
+<div class="container-block no-padding is-max-desktop">
+  <div class="columns is-max-desktop">
+    <aside class="column is-one-quarter api-sidebar-container" markdown="1">
+      <div class="toc-sidebar sticky">
+        <ul class="menu" id="toc-menu"><li><a href="#introduction">1. Introduction</a><ul class="menu-list toc-submenu-2"><li><a href="#use-cases">1.1. Use Cases</a></li><li><a href="#terminology">1.2. Terminology</a></li><li><a href="#common">1.3. Common Specification Features</a></li></ul></li><li><a href="#overview">2. Overview</a></li><li><a href="#3-declaring-services">3. Declaring Services</a></li><li><a href="#search">4. Content Search</a><ul class="menu-list toc-submenu-2"><li><a href="#request-1">4.1. Request</a></li><li><a href="#responses">4.2. Responses</a></li><li><a href="#extended-responses">4.3. Extended Responses</a></li></ul></li><li><a href="#autocomplete">5. Autocomplete</a><ul class="menu-list toc-submenu-2"><li><a href="#request">5.1. Autocomplete Request</a></li><li><a href="#autocomplete-response">5.2. Autocomplete Response</a></li><li><a href="#extended-autocomplete-response">5.3. Extended Autocomplete Responses</a></li></ul></li><li><a href="#appendices">Appendices</a><ul class="menu-list toc-submenu-2"><li><a href="#a-versioning">A. Versioning</a></li><li><a href="#b-acknowledgements">B. Acknowledgements</a></li><li><a href="#c-change-log">C. Change Log</a></li></ul></li></ul>
+
+      </div>
+    </aside>
+    <div class="column is-three-quarters content api-content" markdown="1">
+      <h2 class="no_toc" id="status-of-this-document">
+        
+        
+          Status of this Document <a href="#status-of-this-document" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+<p><strong>This Version:</strong> 2.0.0</p>
+
+<p><strong>Latest Stable Version:</strong> <a href="/api/search/./" title="Latest Content Search API Stable Version">2.0.0</a></p>
+
+<p><strong>Previous Version:</strong> <a href="/api/search/1.0/">1.0.0</a></p>
+
+<p><strong>Editors</strong></p>
+
+<ul>
+  <li>
+    <p><strong><a href="https://orcid.org/0000-0002-1266-298X">Michael Appleby</a></strong>, Yale University</p>
+  </li>
+  <li>
+    <p><strong><a href="https://orcid.org/0000-0003-2602-2788">Dawn Childress</a></strong>, UCLA</p>
+  </li>
+  <li>
+    <p><strong><a href="https://orcid.org/0000-0003-1881-243X">Tom Crane</a></strong>, Digirati</p>
+  </li>
+  <li>
+    <p><strong><a href="https://orcid.org/0000-0002-8411-2952">Jeff Mixter</a></strong>, OCLC</p>
+  </li>
+  <li>
+    <p><strong><a href="https://orcid.org/0000-0003-4441-6852">Robert Sanderson</a></strong>, Yale University</p>
+  </li>
+  <li>
+    <p><strong><a href="https://orcid.org/0000-0002-7970-7855">Simeon Warner</a></strong>, Cornell University</p>
+  </li>
+</ul>
+
+<p><em>Copyright © 2012-2026 Editors and contributors. Published by the <abbr title="International Image Interoperability Framework">IIIF</abbr> Consortium under the <a href="http://creativecommons.org/licenses/by/4.0/" title="Creative Commons &mdash; Attribution 4.0 International">CC-BY</a> license, see <a href="/api/annex/notes/disclaimer/">disclaimer</a>.</em></p><hr />
+      <h2 id="introduction">
+        
+        
+          1. Introduction <a href="#introduction" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+
+<p>In the <abbr title="International Image Interoperability Framework">IIIF</abbr> (pronounced “Triple-Eye-Eff”) <a href="/api/presentation/" title="IIIF Presentation API">Presentation <abbr title="Application Programming Interface">API</abbr></a>, content is brought together from distributed systems via annotations. That content might include images, audio, video, rich or plain text, or anything else. In a vibrant and dynamic system, that content can come from many sources and be rich, varied and abundant. Of that list of content types, textual resources lend themselves to being searched, either as the transcription, translation or edition of the intellectual content, or commentary, description, tagging or other annotations about the object.</p>
+
+<p>This specification lays out the interoperability mechanism for performing these searches within the <abbr title="International Image Interoperability Framework">IIIF</abbr> context. The scope of the specification is searching annotation content within a single <abbr title="International Image Interoperability Framework">IIIF</abbr> resource, such as a Manifest, Canvas, Range or Collection. Every effort is made to keep the interaction as consistent with existing <abbr title="International Image Interoperability Framework">IIIF</abbr> patterns as possible. Searching for metadata or other descriptive properties is <strong>not</strong> in scope for this work.</p>
+
+<p>In order to make searches easier against unknown content, a related service for the automatic completion of search terms is also specified.</p>
+
+<p>We welcome <a href="/api/#feedback" title="IIIF APIs: Feedback requested">feedback</a> on all <abbr title="International Image Interoperability Framework">IIIF</abbr> Specifications.</p>
+      <h3 id="use-cases">
+        
+        
+          1.1. Use Cases <a href="#use-cases" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>Use cases for being able to search the annotations within the Presentation <abbr title="Application Programming Interface">API</abbr> include:</p>
+
+<ul>
+  <li>Searching OCR generated text to find words or phrases within a book, newspaper or other primarily textual content.</li>
+  <li>Searching transcribed content, provided by crowd-sourcing or transformation of scholarly output.</li>
+  <li>Searching multiple streams of content, such as the translation or edition, rather than the raw transcription of the content, to jump to the appropriate part of an object.</li>
+  <li>Searching on sections of text, such as defined chapters or articles.</li>
+  <li>Searching for user provided commentary about the resource, either as a discovery mechanism for the resource or for the discussion.</li>
+  <li>Discovering similar sections of text to compare either the content or the object.</li>
+  <li>Searching for non-textual annotations, such as tags or highlights.</li>
+  <li>Searching within captions, subtitles or transcriptions of audio/visual material.</li>
+</ul>
+
+<p>User interfaces that could be built using the search response include highlighting matching words in the display, providing a heatmap of where the matches occur within the object, and providing a mechanism to jump between points within the object.</p>
+      <h3 id="terminology">
+        
+        
+          1.2. Terminology <a href="#terminology" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>This specification uses the following terms:</p>
+
+<ul>
+  <li><strong>embedded</strong>: When a resource (A) is embedded within an embedding resource (B), the complete <abbr title="JavaScript Object Notation">JSON</abbr> representation of resource A is present within the <abbr title="JavaScript Object Notation">JSON</abbr> representation of resource B, and dereferencing the URI of resource A will not result in additional information. Example: Canvas A is embedded in Manifest B.</li>
+  <li><strong>referenced</strong>: When a resource (A) is referenced from a referencing resource (B), an incomplete <abbr title="JavaScript Object Notation">JSON</abbr> representation of resource A is present within the <abbr title="JavaScript Object Notation">JSON</abbr> representation of resource B, and dereferencing the URI of resource A will result in additional information. Example:  Manifest A is referenced from Collection B.</li>
+</ul>
+
+<p>The terms <em>array</em>, <em><abbr title="JavaScript Object Notation">JSON</abbr> object</em>, <em>number</em>, <em>string</em>, and <em>boolean</em> in this document are to be interpreted as defined by the <a href="https://tools.ietf.org/html/rfc8259" title="JSON RFC">Javascript Object Notation (<abbr title="JavaScript Object Notation">JSON</abbr>)</a> specification.</p>
+
+<p>The key words <em class="rfc">must</em>, <em class="rfc">must not</em>, <em class="rfc">required</em>, <em class="rfc">shall</em>, <em class="rfc">shall not</em>, <em class="rfc">should</em>, <em class="rfc">should not</em>, <em class="rfc">recommended</em>, <em class="rfc">may</em>, and <em class="rfc">optional</em> in this document are to be interpreted as described in <a href="https://tools.ietf.org/html/rfc2119" title="RFC Keywords"><abbr title="Request for Comments">RFC</abbr> 2119</a>.</p>
+      <h3 id="common">
+        
+        
+          1.3. Common Specification Features <a href="#common" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>All <abbr title="International Image Interoperability Framework">IIIF</abbr> specifications share common features to ensure consistency across the <abbr title="International Image Interoperability Framework">IIIF</abbr> ecosystem. These features are documented in the <a href="/api/presentation/3.0/#4-json-ld-considerations" title="Presentation API Section 4">Presentation <abbr title="Application Programming Interface">API</abbr></a> and are foundational to this specification. Common principles for the design of the specifications are documented in the <a href="/api/annex/notes/design_principles/"><abbr title="International Image Interoperability Framework">IIIF</abbr> Design Principles</a>.</p>
+      <h2 id="overview">
+        
+        
+          2. Overview <a href="#overview" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+
+<p>The <abbr title="International Image Interoperability Framework">IIIF</abbr> <a href="/api/presentation/" title="IIIF Presentation API">Presentation <abbr title="Application Programming Interface">API</abbr></a> provides just enough information to a viewer so that it can present the images and other content to the user in a rich and understandable way. Those content resources may have textual annotations associated with them. Annotations may also be associated with the structural components of the Presentation <abbr title="Application Programming Interface">API</abbr>, such as a Collection, Manifest, or Range. Further, annotations can be replied to by annotating them to form a threaded discussion about the commentary, transcription, edition or translation.</p>
+
+<p>Annotations are made available in <abbr title="International Image Interoperability Framework">IIIF</abbr> via Annotation Pages, where typically the included Annotations target the same resource or part of it. Where known, these Annotation Pages can be directly referenced from the Manifest to allow clients to simply follow the link to retrieve them.
+This specification uses Annotation Pages to deliver search results, in which the Annotations in one Annotation Page can target multiple Canvases or other resources, and the Annotation Pages are likely to be generated dynamically.</p>
+
+<p>Beyond the ability to search for words or phrases, users find it helpful to have suggestions for what terms they should be searching for. This facility is often called autocomplete or type-ahead, and within the context of a single object can provide insight into the language and content.</p>
+
+<p>This specification defines two services to be associated with <abbr title="International Image Interoperability Framework">IIIF</abbr> resources: the Content Search service and the Autocomplete service.</p>
+      <h2 id="3-declaring-services">
+        
+        
+          3. Declaring Services <a href="#3-declaring-services" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+
+<p>The Content Search and the Autocomplete services are associated with <abbr title="International Image Interoperability Framework">IIIF</abbr> resources using the <code class="language-plaintext highlighter-rouge">service</code> property, defined by the <a href="/api/presentation/3.0/#service">Presentation <abbr title="Application Programming Interface">API</abbr></a> as an array of <abbr title="JavaScript Object Notation">JSON</abbr> objects. These objects <em class="rfc">must</em> have the <code class="language-plaintext highlighter-rouge">id</code> and <code class="language-plaintext highlighter-rouge">type</code> properties. The value of the <code class="language-plaintext highlighter-rouge">id</code> property <em class="rfc">must</em> be the URI used to interact with the service.</p>
+
+<p>Any resource in the <a href="/api/presentation/3.0/" title="Presentation API">Presentation <abbr title="Application Programming Interface">API</abbr></a> <em class="rfc">may</em> have a Content Search service associated with it. The resource determines the scope of the content that will be searched. A service associated with a Manifest will search all of the annotations on Canvases or other resources below the Manifest, a service associated with a particular Range will only search the Canvases within the Range, or a service on a Canvas will search only Annotations on that particular Canvas.</p>
+
+<p>An example service description block:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="c1">// ... the resource that the search service is associated with ...</span><span class="w">
+  </span><span class="nl">"service"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/services/identifier/search"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SearchService2"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Any Content Search service <em class="rfc">may</em> have a nested Autocomplete service which provides term completion functionality specific to the Content Search service. This structure allows multiple Content Search services to be referenced, each with their own Autocomplete service.</p>
+
+<p>The above service description block would become:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="c1">// Resource that the services are associated with ...</span><span class="w">
+  </span><span class="nl">"service"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/services/identifier/search"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SearchService2"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"service"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/services/identifier/autocomplete"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AutoCompleteService2"</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h2 id="search">
+        
+        
+          4. Content Search <a href="#search" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+
+<p>The Content Search service takes a query, typically including a search term or URI. Results may be constrained by other properties, such as the date the annotation was created or last modified, the motivation for the annotation, or the user that created the annotation.</p>
+      <h3 id="request-1">
+        
+        
+          4.1. Request <a href="#request-1" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>A search request is made to a service that is associated with a particular Presentation <abbr title="Application Programming Interface">API</abbr> resource. The URIs for services associated with different resources <em class="rfc">must</em> be different to allow the client to use the correct one for the desired scope of the search. To perform a search, the client <em class="rfc">must</em> use the <abbr title="Hypertext Transfer Protocol">HTTP</abbr> GET method to make the request to the service, with query parameters to specify the search terms.</p>
+      <h4 id="query-parameters">
+        
+        
+          4.1.1. Query Parameters <a href="#query-parameters" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>The following query parameters are defined:</p>
+
+<table class="api-table">
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Definition</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">q</code></td>
+      <td>A space separated list of search terms. For example, the search terms might be words (to search for within textual bodies) or URIs (to search identities of annotation body resources). The semantics of multiple, space separated terms is server implementation dependent.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">motivation</code></td>
+      <td>A space separated list of motivation terms. If multiple motivations are supplied, an annotation matches the search if any of the motivations are present. Common values for the motivation parameter can be found in the <a href="/api/registry/motivations/"><abbr title="International Image Interoperability Framework">IIIF</abbr> Registry of Motivations</a>, including the two Content Search motivations <code class="language-plaintext highlighter-rouge">contextualizing</code> and <code class="language-plaintext highlighter-rouge">highlighting</code> defined in sections <a href="/api/search/2.0/#match-context">4.3.1</a> and <a href="/api/search/2.0/#match-highlighting">4.3.2</a> below.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">date</code></td>
+      <td>A space separated list of date ranges. An annotation matches if the date on which it was created falls within any of the supplied date ranges. The date ranges <em class="rfc">must</em> be supplied in the ISO8601 <code class="language-plaintext highlighter-rouge">start/end</code> format: <code class="language-plaintext highlighter-rouge">YYYY-MM-DDThh:mm:ssZ/YYYY-MM-DDThh:mm:ssZ</code>. The <code class="language-plaintext highlighter-rouge">start</code> and <code class="language-plaintext highlighter-rouge">end</code> dates <em class="rfc">must</em> be combined date and time values expressed in UTC and <em class="rfc">must</em> use the <code class="language-plaintext highlighter-rouge">Z</code> timezone indicator.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">user</code></td>
+      <td>A space separated list of URIs that are the identities of users. If multiple users are supplied, an annotation matches the search if any of the supplied users created the annotation.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Other than <code class="language-plaintext highlighter-rouge">q</code>, which is <em class="rfc">recommended</em>, all other parameters are <em class="rfc">optional</em> in the request. The default, if a parameter is empty or not supplied, is to not restrict the annotations that match the search by that parameter. If the value is supplied but the field is not present in an annotation, then the search does not match that annotation. For example if an annotation does not have a creator, and the query specifies a <code class="language-plaintext highlighter-rouge">user</code> parameter, then the annotation does not match the query.</p>
+
+<p>Servers <em class="rfc">should</em> implement the <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">motivation</code> parameters and <em class="rfc">may</em> implement the other parameters. Parameters defined by this specification that are received in a request but not implemented <em class="rfc">must</em> be ignored, and <em class="rfc">must</em> be included in the <code class="language-plaintext highlighter-rouge">ignored</code> property in the response, described <a href="#ignored-parameters">below</a>.</p>
+      <h4 id="example-request">
+        
+        
+          4.1.2. Example Request <a href="#example-request" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/manifest/search?q=bird&amp;motivation=painting</code></p>
+
+<p>This request would search for annotations with the word “bird” in their textual content, and have the motivation of <code class="language-plaintext highlighter-rouge">painting</code>. It would search annotations within the resource with which the service was associated.</p>
+      <h3 id="responses">
+        
+        
+          4.2. Responses <a href="#responses" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>The response from the server <em class="rfc">must</em> be an <a href="/api/presentation/3.0/#55-annotation-page">Annotation Page</a>, following the format from the Presentation <abbr title="Application Programming Interface">API</abbr> with some additional features. This allows clients that already implement the Annotation Page format to avoid further implementation work to support search results.</p>
+      <h4 id="simple-lists">
+        
+        
+          4.2.1. Simple Lists <a href="#simple-lists" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>The simplest response is a normal Annotation Page, where all of the matching Annotations are returned in a single response.</p>
+
+<p>The total number of matching Annotations is the length of the <code class="language-plaintext highlighter-rouge">items</code> array, as all matching Annotations have been returned in the response. Every Annotation <em class="rfc">must</em> be fully embedded in the response.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/manifest/search?q=bird&amp;motivation=painting</code></p>
+
+<p>This request might result in:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=bird&amp;motivation=painting"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-line"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"A bird in the hand is worth two in the bush"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=100,100,250,20"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="c1">// Further matching annotations here ...</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h4 id="paging-results">
+        
+        
+          4.2.2. Paging Results <a href="#paging-results" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>For long lists of Annotations, the server <em class="rfc">may</em> divide the response into multiple Annotation Pages within one Annotation Collection. The initial response is the first Annotation Page, which includes an embedded Annotation Collection and references subsequent pages to be retrieved.</p>
+
+<p>The URI of the Annotation Page reported in the <code class="language-plaintext highlighter-rouge">id</code> property <em class="rfc">may</em> be different from the one used by the client to request the search. This would allow, for example, a <code class="language-plaintext highlighter-rouge">page</code> query parameter to be appended to the URI to allow the server to track which Annotation Page is being requested.</p>
+
+<p>When results are paged, the Annotation Pages have several additional properties:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">partOf</code> - The Annotation Page <em class="rfc">must</em> have a <code class="language-plaintext highlighter-rouge">partOf</code> property. The value is a <abbr title="JavaScript Object Notation">JSON</abbr> object, which is the embedded Annotation Collection resource, following the structure defined below.</li>
+  <li><code class="language-plaintext highlighter-rouge">next</code> - The Annotation Page <em class="rfc">must</em> have a <code class="language-plaintext highlighter-rouge">next</code> property if there is a subsequent page. The value is a <abbr title="JavaScript Object Notation">JSON</abbr> object with an <code class="language-plaintext highlighter-rouge">id</code> of the URI of the subsequent page, and <code class="language-plaintext highlighter-rouge">type</code> with a value of <code class="language-plaintext highlighter-rouge">AnnotationPage</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">prev</code> - The Annotation Page <em class="rfc">should</em> have a <code class="language-plaintext highlighter-rouge">prev</code> property if there is a previous page. The value is a <abbr title="JavaScript Object Notation">JSON</abbr> object with <code class="language-plaintext highlighter-rouge">id</code> containing the URI of the previous page, and <code class="language-plaintext highlighter-rouge">type</code> with a value of <code class="language-plaintext highlighter-rouge">AnnotationPage</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">startIndex</code> - The Annotation Page <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">startIndex</code> property, which is the position of the first Annotation in this page’s <code class="language-plaintext highlighter-rouge">items</code> list, relative to the overall ordering of Annotations across all pages within the Annotation Collection. The value is a zero-based integer.</li>
+</ul>
+
+<p>The embedded Annotation Collection has the following properties:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">first</code> - The Annotation Collection <em class="rfc">must</em> have a <code class="language-plaintext highlighter-rouge">first</code> property. The value is a <abbr title="JavaScript Object Notation">JSON</abbr> object, with an <code class="language-plaintext highlighter-rouge">id</code> of the URI of the first page, and <code class="language-plaintext highlighter-rouge">type</code> with a value of <code class="language-plaintext highlighter-rouge">AnnotationPage</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">last</code> - The Annotation Collection <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">last</code> property. The value is a <abbr title="JavaScript Object Notation">JSON</abbr> object, with an <code class="language-plaintext highlighter-rouge">id</code> of the URI of the last page, and <code class="language-plaintext highlighter-rouge">type</code> with a value of <code class="language-plaintext highlighter-rouge">AnnotationPage</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">total</code> - The Annotation Collection <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">total</code> property. The value is an integer, which is the total number of Annotations in the Collection, across all Annotation Pages.</li>
+</ul>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/manifest/search?q=bird</code></p>
+
+<p>This request might result in the following response:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=bird&amp;page=1"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"partOf"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=bird"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationCollection"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">125</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"first"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/identifier/search?q=bird&amp;page=1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"last"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/identifier/search?q=bird&amp;page=13"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"next"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/identifier/search?q=bird&amp;page=2"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"startIndex"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-line"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"A bird in the hand is worth two in the bush"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=100,100,250,20"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="c1">// Further annotations from the first page here ...</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">  
+</span></code></pre></div></div>
+      <h4 id="references-containing-resources">
+        
+        
+          4.2.3. References to Containing Resources <a href="#references-containing-resources" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>It is possible that Canvases referenced by the Annotations in the results are contained in Manifests that the client has not loaded, for example when searching in a Collection. In this and similar cases, it is important to have a reference to the containing resource so that a client can retrieve and render it.</p>
+
+<p>This reference to the containing resource is included in the <code class="language-plaintext highlighter-rouge">target</code> structure of the Annotation, in a <code class="language-plaintext highlighter-rouge">partOf</code> property, with a <abbr title="JavaScript Object Notation">JSON</abbr> object as its value. The <code class="language-plaintext highlighter-rouge">id</code> and <code class="language-plaintext highlighter-rouge">type</code> of the containing resource <em class="rfc">must</em> be given, and a <code class="language-plaintext highlighter-rouge">label</code> <em class="rfc">should</em> be included.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/collection/search?q=bird&amp;motivation=painting</code></p>
+
+<p>This request might result in:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/collection/search?q=bird&amp;motivation=painting"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-line"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"A bird in the hand is worth two in the bush"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=100,100,250,20"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"partOf"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/manifest1868"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Manifest"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"en"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"Example Manifest"</span><span class="w"> </span><span class="p">]</span><span class="w">
+          </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="c1">// Further annotations here ...</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h4 id="ignored-parameters">
+        
+        
+          4.2.4. Ignored Parameters <a href="#ignored-parameters" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>If the server has ignored any of the parameters in the request, then an <code class="language-plaintext highlighter-rouge">ignored</code> property <em class="rfc">must</em> be present, and <em class="rfc">must</em> contain a list of the ignored parameters. Servers <em class="rfc">may</em> omit ignored query parameters from the <code class="language-plaintext highlighter-rouge">id</code> of the Annotation Page.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">http://example.org/service/manifest/search?q=bird&amp;user=https%3A%2F%2Fexample.com%2Fusers%2Fwigglesworth</code></p>
+
+<p>If the <code class="language-plaintext highlighter-rouge">user</code> parameter was ignored when processing this request, the response could be:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://example.org/service/manifest/search?q=bird&amp;page=1"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"ignored"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"user"</span><span class="w"> </span><span class="p">],</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="c1">// Annotations ...</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h3 id="extended-responses">
+        
+        
+          4.3. Extended Responses <a href="#extended-responses" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>Clients may require additional information about the matches in order to generate a rich user experience for search. This additional information about matches in search results is provided by further Annotations in a property called <code class="language-plaintext highlighter-rouge">annotations</code>. This structure maintains the distinction in the <a href="/api/presentation/3.0/" title="Presentation API">Presentation <abbr title="Application Programming Interface">API</abbr></a>, where the main content annotations are listed in <code class="language-plaintext highlighter-rouge">items</code> and additional annotations such as comments are listed in <code class="language-plaintext highlighter-rouge">annotations</code>. The value of <code class="language-plaintext highlighter-rouge">annotations</code> is an array containing a single Annotation Page, in which all of the Annotations reference Annotations in the <code class="language-plaintext highlighter-rouge">items</code> property.</p>
+
+<p>The structure of extended responses is:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=bird"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="c1">// Matching Annotations here ...</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+
+  </span><span class="nl">"annotations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="c1">// Annotations with additional information about matching Annotations here ...</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h4 id="match-context">
+        
+        
+          4.3.1. Match Context <a href="#match-context" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>Search interfaces often display text before and after the matching text in a search result, as a snippet which shows the match in the context of the surrounding content. This is most useful when the service has word-level boundaries of the text on the Canvas, such as when OCR has been used to generate the text positions.</p>
+
+<p>To meet this requirement, the Annotations have a <code class="language-plaintext highlighter-rouge">motivation</code> of <code class="language-plaintext highlighter-rouge">contextualizing</code>, and a <a href="https://www.w3.org/TR/annotation-model/#text-quote-selector" title="Web Annotation Model - Text Quote Selector">Web Annotation Data Model</a> <code class="language-plaintext highlighter-rouge">TextQuoteSelector</code> with <code class="language-plaintext highlighter-rouge">prefix</code> and <code class="language-plaintext highlighter-rouge">suffix</code> of the text immediately before and after the matching content in the annotation. The matching content is conveyed in the <code class="language-plaintext highlighter-rouge">exact</code> property. The selector has the URI of the annotation it refers to in the <code class="language-plaintext highlighter-rouge">source</code> property, to be matched against the <code class="language-plaintext highlighter-rouge">id</code> property of the annotations in <code class="language-plaintext highlighter-rouge">items</code>.</p>
+
+<p>Consider a search request for the query term “bird”:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/manifest/search?q=bird</code></p>
+
+<p>This request might match the plural “birds”:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=bird"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birds"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=200,100,40,20"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="c1">// Further 'bird' annotations here ...</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+
+  </span><span class="nl">"annotations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/match-1"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"contextualizing"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpecificResource"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"selector"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+              </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextQuoteSelector"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"There are two "</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"exact"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birds"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" in the bush"</span><span class="w">
+              </span><span class="p">}</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+          </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h4 id="match-highlighting">
+        
+        
+          4.3.2. Match Highlighting <a href="#match-highlighting" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>Many systems do not have full word-level coordinate information, and are restricted to line or paragraph level boundaries. In these cases the client may display the entire annotation and highlight the matches within it. This is similar, but different, to the match context use case. Here, the match is somewhere within the <code class="language-plaintext highlighter-rouge">body</code> property of the annotation and the client needs to make it more prominent.</p>
+
+<p>The client needs to know the text that matched and enough information about where it occurs in the content to reliably highlight it and not highlight non-matching content. To do this, the service can use the <code class="language-plaintext highlighter-rouge">selector</code> pattern to supply the text before and after the matching term <em>within the content of the annotation</em>, again via a <code class="language-plaintext highlighter-rouge">TextQuoteSelector</code> object. The value of the <code class="language-plaintext highlighter-rouge">motivation</code> property is <code class="language-plaintext highlighter-rouge">highlighting</code> in this case, to distinguish from the match context use case. Non-textual content, such as audio or video resources, would use other selectors instead, but the pattern would otherwise remain the same.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/manifest/search?q=bird</code></p>
+
+<p>This request might have the response:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=bird"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"There are two birds in the bush"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=200,100,200,20"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="c1">// Further 'bird' annotations here ...</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+
+  </span><span class="nl">"annotations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/match-1"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"highlighting"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpecificResource"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"selector"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+              </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextQuoteSelector"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"There are two "</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"exact"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birds"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" in the bush"</span><span class="w">
+              </span><span class="p">}</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+          </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h4 id="multi-match-annotations">
+        
+        
+          4.3.3. Multi-Match Annotations <a href="#multi-match-annotations" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>A query might result in multiple matches within a single annotation, especially if wildcards or stemming are enabled or the content of the annotation is long. This is handled by including the matching Annotation once in <code class="language-plaintext highlighter-rouge">items</code>, and the multiple entries that refer to it in the <code class="language-plaintext highlighter-rouge">annotations</code> list. Each entry then uses a different <code class="language-plaintext highlighter-rouge">TextQuoteSelector</code> on the same matching Annotation to describe where the matching content can be found. A client can process each entry in turn to highlight each match in the Annotation.</p>
+
+<p>The Annotation Page in <code class="language-plaintext highlighter-rouge">annotations</code> <em class="rfc">may</em> embed an Annotation Collection allowing the response to include the total number of additional information Annotations. This Annotation Collection <em class="rfc">must</em> be different from the Annotation Collection embedded within the Annotation Page at the top level of the response. In this and similar scenarios, the values of the <code class="language-plaintext highlighter-rouge">total</code> properties of the two Annotation Collections may not be the same: the total number of matching annotations is determined by the division of the content, whereas the total number of additional annotations is determined by the query.</p>
+
+<p>Consider the request for words beginning with “b”:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/manifest/search?q=b*</code></p>
+
+<p>The request might have the response:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=b*&amp;page=1"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"partOf"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=b*"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationCollection"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">129</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"There are two birds in the bush"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=200,100,200,20"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="c1">// Further 'b' annotations here ...</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+
+  </span><span class="nl">"annotations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/additional/search?q=b*&amp;page=1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"partOf"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/additional/search?q=b*"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationCollection"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">521</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/additional/annotation/match-1"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"highlighting"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpecificResource"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"selector"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+              </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextQuoteSelector"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"There are two "</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"exact"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birds"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" in the bush"</span><span class="w">
+              </span><span class="p">}</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+          </span><span class="p">}</span><span class="w">
+        </span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/additional/annotation/match-2"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"highlighting"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpecificResource"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-bird"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"selector"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+              </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextQuoteSelector"</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birds in the "</span><span class="p">,</span><span class="w">
+                </span><span class="nl">"exact"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bush"</span><span class="w">
+              </span><span class="p">}</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+          </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h4 id="multi-annotation-matches">
+        
+        
+          4.3.4. Multi-Annotation Matches <a href="#multi-annotation-matches" class="anchorClass"></a>
+        
+        
+      </h4>
+    
+
+<p>For some queries, matching result text may be spread across multiple annotations that encode the sections of the source text. This means that multiple matching annotations may be required to match a single search.</p>
+
+<p>For example, imagine a set of manual transcription annotations which are divided up line by line, and that there are two lines of text. In this example the first line is “A bird in the hand”, the second line is “is worth two in the bush”, and the search is for the phrase “hand is”. Therefore the match comprises parts of both line-based annotations.</p>
+
+<p>In cases like this there are more annotations in the <code class="language-plaintext highlighter-rouge">items</code> list than in the <code class="language-plaintext highlighter-rouge">annotations</code> list as two or more annotations will be needed to make a match. This is handled by referencing all of the required matching annotations as multiple targets in a single annotation with the <code class="language-plaintext highlighter-rouge">highlighting</code> motivation in the <code class="language-plaintext highlighter-rouge">annotations</code> list.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">http://example.org/service/manifest/search?q=hand+is</code></p>
+
+<p>This request might have the response:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/manifest/search?q=hand+is"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-hand"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"A bird in the hand"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=200,100,150,30"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-is"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"painting"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"body"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextualBody"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"is worth two in the bush."</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/canvas1#xywh=200,140,170,30"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+
+  </span><span class="nl">"annotations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/additional/search?q=hand+is&amp;page=1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationPage"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"partOf"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/additional/search?q=hand+is"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AnnotationCollection"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/additional/annotation/match-1"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Annotation"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"motivation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"highlighting"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+            </span><span class="p">{</span><span class="w">
+              </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpecificResource"</span><span class="p">,</span><span class="w">
+              </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-hand"</span><span class="p">,</span><span class="w">
+              </span><span class="nl">"selector"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="p">{</span><span class="w">
+                  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextQuoteSelector"</span><span class="p">,</span><span class="w">
+                  </span><span class="nl">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bird in the "</span><span class="p">,</span><span class="w">
+                  </span><span class="nl">"exact"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hand"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+              </span><span class="p">]</span><span class="w">
+            </span><span class="p">},</span><span class="w">
+            </span><span class="p">{</span><span class="w">
+              </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SpecificResource"</span><span class="p">,</span><span class="w">
+              </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/identifier/annotation/anno-is"</span><span class="p">,</span><span class="w">
+              </span><span class="nl">"selector"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="p">{</span><span class="w">
+                  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TextQuoteSelector"</span><span class="p">,</span><span class="w">
+                  </span><span class="nl">"exact"</span><span class="p">:</span><span class="w"> </span><span class="s2">"is"</span><span class="p">,</span><span class="w">
+                  </span><span class="nl">"suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" worth two in the"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+              </span><span class="p">]</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+          </span><span class="p">]</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h2 id="autocomplete">
+        
+        
+          5. Autocomplete <a href="#autocomplete" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+
+<p>An Autocomplete service returns terms that can be used to perform a search using the related search service, given some characters.</p>
+      <h3 id="request">
+        
+        
+          5.1. Autocomplete Request <a href="#request" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>An Autocomplete request takes the same parameters as a Content Search request, with one addition:</p>
+
+<table class="api-table">
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Definition</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">min</code></td>
+      <td>The minimum number of occurrences for a term in the index in order for it to appear within the response; default is 1 if not present. Support for this parameter is <em class="rfc">optional</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <code class="language-plaintext highlighter-rouge">q</code> parameter <em class="rfc">must</em> be present. Its value is interpreted as a single character string to match within terms in the index, often beginning characters. For example, the query term of ‘bir’ might complete to ‘bird’, ‘biro’, ‘birth’, and ‘birthday’.</p>
+
+<p>The other parameters (<code class="language-plaintext highlighter-rouge">motivation</code>, <code class="language-plaintext highlighter-rouge">date</code> and <code class="language-plaintext highlighter-rouge">user</code>), if supported, refine the set of terms in the response to only ones from the annotations that match those filters. For example, if the motivation is given as <code class="language-plaintext highlighter-rouge">painting</code>, then only text from painting transcriptions will contribute to the list of terms in the response.</p>
+
+<p>An example request would be:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/identifier/autocomplete?q=bir&amp;motivation=painting&amp;user=https%3A%2F%2Fexample.com%2Fusers%2Fwigglesworth</code></p>
+      <h3 class="urltemplate" id="autocomplete-response">
+        
+        
+          5.2. Autocomplete Response <a href="#autocomplete-response" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>Most auto-complete scenarios can be fulfilled by a simple list of terms. These terms can be converted into a search by using them as the value of the <code class="language-plaintext highlighter-rouge">q</code> parameter of the related Content Search service.</p>
+
+<p>In order to accommodate this use case, a new class <code class="language-plaintext highlighter-rouge">TermPage</code> is introduced for the response, and a class <code class="language-plaintext highlighter-rouge">Term</code> to describe the values.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">TermPage</code> has the following properties:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">id</code> - The <code class="language-plaintext highlighter-rouge">TermPage</code> <em class="rfc">must</em> have an <code class="language-plaintext highlighter-rouge">id</code> property. The value is a URI and <em class="rfc">may</em> be different from the one requested.</li>
+  <li><code class="language-plaintext highlighter-rouge">type</code> - The <code class="language-plaintext highlighter-rouge">TermPage</code> <em class="rfc">must</em> have a <code class="language-plaintext highlighter-rouge">type</code> property. The value <em class="rfc">must</em> be <code class="language-plaintext highlighter-rouge">TermPage</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">ignored</code> - The <code class="language-plaintext highlighter-rouge">TermPage</code> <em class="rfc">may</em> have an <code class="language-plaintext highlighter-rouge">ignored</code> property. The value <em class="rfc">must</em> be an array of strings, each of which is the name of a query parameter which was ignored by the server.</li>
+  <li><code class="language-plaintext highlighter-rouge">items</code> - The <code class="language-plaintext highlighter-rouge">TermPage</code> <em class="rfc">must</em> have an <code class="language-plaintext highlighter-rouge">items</code> property. The value <em class="rfc">must</em> be an array of zero or more items. Each item <em class="rfc">must</em> be a <abbr title="JavaScript Object Notation">JSON</abbr> object, each of which is a <code class="language-plaintext highlighter-rouge">Term</code>.</li>
+</ul>
+
+<p>In this simple case, <code class="language-plaintext highlighter-rouge">Term</code> resources have a single property <code class="language-plaintext highlighter-rouge">value</code> which contains the term string. The number of terms provided in the list is determined by the server.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/identifier/autocomplete?q=bir</code></p>
+
+<p>This request might have the response:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/identifier/autocomplete?q=bir"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TermPage"</span><span class="p">,</span><span class="w">  
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bird"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"biro"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birthday"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h3 id="extended-autocomplete-response">
+        
+        
+          5.3. Extended Autocomplete Responses <a href="#extended-autocomplete-response" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>There are cases where a simple list of terms is not sufficient to support use of the Autocomplete service. These include when a label is required to allow a user to select an appropriate term, when the term cannot be used as a query parameter directly, and when it is useful to know the total number of occurences of a term within the index.</p>
+
+<p>The use cases are fulfilled by extending the properties of the <code class="language-plaintext highlighter-rouge">Term</code> resources to include further information.</p>
+
+<p><code class="language-plaintext highlighter-rouge">Term</code> resources have the following properties:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">type</code> - The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">type</code> property. If present, the value <em class="rfc">must</em> be <code class="language-plaintext highlighter-rouge">Term</code>. The use of the property is <em class="rfc">not recommended</em> to keep the response shorter.</li>
+  <li><code class="language-plaintext highlighter-rouge">value</code> - The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">must</em> have a <code class="language-plaintext highlighter-rouge">value</code> property. The value is a the string form of the term.</li>
+  <li><code class="language-plaintext highlighter-rouge">total</code> - The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">total</code> property. The value is an integer, which is the number of times the term occurs in the index.</li>
+  <li><code class="language-plaintext highlighter-rouge">label</code> - The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">label</code> property. The value is a <abbr title="JavaScript Object Notation">JSON</abbr> object which follows the definition of a <a href="/api/presentation/3.0/#language-of-property-values" title="Language of Property Values">language map</a>. This label should be displayed to the user instead of the <code class="language-plaintext highlighter-rouge">value</code>, for example when the <code class="language-plaintext highlighter-rouge">value</code> is a URI or a string that has been manipulated with stemming or other normalization.</li>
+  <li><code class="language-plaintext highlighter-rouge">language</code> - The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">language</code> property. The value is a string conforming to the <a href="https://tools.ietf.org/html/bcp47" title="Tags for Identifying Languages">BCP 47</a> language code specification, and gives the language of the term string in the <code class="language-plaintext highlighter-rouge">value</code> property.</li>
+  <li><code class="language-plaintext highlighter-rouge">service</code> - The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">may</em> have a <code class="language-plaintext highlighter-rouge">service</code> property. The value is an array of <abbr title="JavaScript Object Notation">JSON</abbr> objects, where each object is a Service. The <code class="language-plaintext highlighter-rouge">Term</code> <em class="rfc">must</em> include an entry for the full link to the related <code class="language-plaintext highlighter-rouge">SearchService2</code>, when the <code class="language-plaintext highlighter-rouge">value</code> cannot be used directly in the <code class="language-plaintext highlighter-rouge">q</code> parameter. In this case, the <code class="language-plaintext highlighter-rouge">id</code> of the service is the full link including the <code class="language-plaintext highlighter-rouge">q</code> and other parameters.</li>
+</ul>
+
+<p>The usage of the properties in terms need not be consistent within a single response, and properties should only be included when needed.</p>
+
+<p>The terms <em class="rfc">should</em> be provided in ascending alphabetically sorted order, but other orders are allowed, such as by the term’s <code class="language-plaintext highlighter-rouge">total</code> count descending to put the most common matches first, or to alphabetize on the <code class="language-plaintext highlighter-rouge">label</code> rather than the <code class="language-plaintext highlighter-rouge">value</code>.</p>
+
+<p>Consider the example request:</p>
+
+<p><code class="language-plaintext highlighter-rouge">https://example.org/service/identifier/autocomplete?q=bir&amp;user=https%3A%2F%2Fexample.com%2Fusers%2Fwigglesworth</code></p>
+
+<p>This request might generate the response:</p>
+
+<script src="/api/assets/js/copyCodeBlock.js"></script>
+
+<div class="code-header">
+    <button class="copy-button button is-small is-primary" aria-label="Copy code to clipboard"></button>
+</div>
+
+<div class="language-json-doc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"@context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://iiif.io/api/search/2/context.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/identifier/autocomplete?q=bir"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TermPage"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"ignored"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"user"</span><span class="w"> </span><span class="p">],</span><span class="w">
+  </span><span class="nl">"items"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bird"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"language"</span><span class="p">:</span><span class="w"> </span><span class="s2">"en"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Term"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://semtag.example.org/tag/biro"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"en"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"biro"</span><span class="w"> </span><span class="p">]</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"service"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+          </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.org/service/identifier/search?motivation=tagging&amp;q=semtag:biro"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SearchService2"</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">],</span><span class="w">      
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"birth"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"en"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"birth"</span><span class="w"> </span><span class="p">],</span><span class="w">
+        </span><span class="nl">"fr"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">"naissance"</span><span class="w"> </span><span class="p">]</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+      <h2 id="appendices">
+        
+        
+          Appendices <a href="#appendices" class="anchorClass"></a>
+        
+        
+      </h2>
+    
+      <h3 id="a-versioning">
+        
+        
+          A. Versioning <a href="#a-versioning" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>This specification follows <a href="http://semver.org/spec/v2.0.0.html" title="Semantic Versioning 2.0.0">Semantic Versioning</a>. See the note <a href="/api/annex/notes/semver/" title="Versioning of APIs">Versioning of APIs</a> for details regarding how this is implemented.</p>
+      <h3 id="b-acknowledgements">
+        
+        
+          B. Acknowledgements <a href="#b-acknowledgements" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<p>Many thanks to the members of the <a href="https://iiif.io/community/" title="IIIF Community"><abbr title="International Image Interoperability Framework">IIIF</abbr></a> for their continuous engagement, innovative ideas and feedback.</p>
+
+<p>This specification is due primarily to the work of the <a href="https://iiif.io/community/groups/content-search-tsg/"><abbr title="International Image Interoperability Framework">IIIF</abbr> Content Search Technical Specification Group</a>, chaired by Mike Bennett, Dawn Childress (UCLA), Tom Crane (Digirati), and the <abbr title="International Image Interoperability Framework">IIIF</abbr> Editors, including Maria Whitaker (Indiana University, Editor 2020-2021). The <abbr title="International Image Interoperability Framework">IIIF</abbr> Community thanks them for their leadership, and the members of the group for their tireless work.</p>
+      <h3 id="c-change-log">
+        
+        
+          C. Change Log <a href="#c-change-log" class="anchorClass"></a>
+        
+        
+      </h3>
+    
+
+<table class="api-table">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2022-11-15</td>
+      <td>Version 2.0 (Mr. Wigglesworth) <a href="/api/search/2.0/change-log/" title="Content Search API 2.0 Change Log">View change log</a></td>
+    </tr>
+    <tr>
+      <td>2016-05-12</td>
+      <td>Version 1.0 (Lost Summer)</td>
+    </tr>
+    <tr>
+      <td>2015-07-20</td>
+      <td>Version 0.9 (Trip Life)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Keep two spaces at the top of this file -->
+
+    </div>
+  </div>
+</div>
+
+
+      
+    </section>
+<footer id="footer" class="footer">
+  <div class="container">
+    <div class="columns">
+
+      <div class="navbar-brand column is-half">
+        <a class="navbar-item" href="/api/">
+          <img src="/api/assets/images/logos/logo-sm.png" alt="IIIF logo" height="28">
+          <span class="brand-title blue-text">International Image Interoperability Framework</span>
+        </a>
+        <p>IIIF is a set of open standards for delivering high-quality, attributed digital objects online at scale. It’s also an international community developing and implementing the IIIF APIs. IIIF is backed by a consortium of leading cultural institutions.</p>
+      </div>
+      <div class="column"></div>
+      
+      <div class="column menu-column">
+        <h4>About</h4>
+        <ul>
+        
+          <li>
+            <a href="https://iiif.io/get-started/how-iiif-works">How IIIF Works</a>
+          </li>
+        
+          <li>
+            <a href="/api">APIs & Documentation</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/demos">Demos</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/guides">Tutorials & Guides</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/privacy">Privacy policy</a>
+          </li>
+        
+        </ul>
+      </div>
+      
+      <div class="column menu-column">
+        <h4>Stay Connected</h4>
+        <ul>
+        
+          <li>
+            <a href="https://iiif.io/news-and-events">News & Events</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/newsletter">Join Newsletter</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/community/groups">Community Groups</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/community/consortium">Consortium</a>
+          </li>
+        
+          <li>
+            <a href="https://iiif.io/contact">Contact Us</a>
+          </li>
+        
+        </ul>
+      </div>
+      
+    </div>
+  </div>
+</footer><script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
+    <script type="text/javascript" src="/api/assets/js/carouselInit.js"></script>
+
+    
+        <!-- Read the Formbutton docs at formspree.io/formbutton/docs. See more examples at codepen.io/formspree -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.css" />
+
+<script src="https://formspree.io/js/formbutton-v1.min.js" defer></script>
+<script>
+  /* paste this line in verbatim */
+  window.formbutton=window.formbutton||function(){(formbutton.q=formbutton.q||[]).push(arguments)};
+  /* customize formbutton below*/     
+  formbutton("create", {
+    action: "https://formspree.io/f/xbjwjlbn",
+    title: "Feedback",
+    fields: [
+      {
+        type: "radio",
+        name: "feedback_type",
+        value: "Comment",
+        label: "Comment",
+        style: {
+            display: "inline-block",
+            "padding-right": "10px"
+        }
+      },
+      {
+        type: "radio",
+        name: "feedback_type",
+        value: "Correction",
+        label: "Correction",
+        style: {
+            display: "inline-block",
+            "padding-right": "10px"
+        }
+      },
+      {
+        type: "radio",
+        name: "feedback_type",
+        value: "Bug",
+        label: "Bug",
+        style: {
+            display: "inline-block",
+            "padding-right": "10px"
+        }
+      },
+      { 
+        type: "email", 
+        label: "Email:", 
+        name: "Email",
+        required: true,
+        placeholder: "your@email.com"
+      },
+      {
+        type: "textarea",
+        label: "Message:",
+        name: "Message",
+        placeholder: "We want to hear from you! Enter your feedback here.",
+      },
+      { 
+        type: "submit",
+        value: "Submit"
+      },
+      {
+        type: "hidden",
+        name: "Page",
+        value: window.location.pathname.replaceAll('/','|'),
+        style: {
+            display: "none"
+        }
+      }
+    ],
+    buttonImg: "<i class='fas fa-comment' style='font-size:24px'/>", 
+    styles: {
+      title: {
+        backgroundColor: "#0d232d"
+      },
+      button: {
+        backgroundColor: "#0d232d"
+      }
+    }
+  });
+</script>
+
+    
+  </body>
+</html>

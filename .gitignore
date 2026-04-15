@@ -1,0 +1,21 @@
+/target
+**/*.rs.bk
+*.pdb
+.env
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+/images/test.jpg
+.claude/
+CLAUDE.md
