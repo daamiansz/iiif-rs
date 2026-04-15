@@ -96,9 +96,7 @@ impl FilesystemStorage {
         if let Ok(entries) = fs::read_dir(&self.root_dir) {
             for entry in entries.flatten() {
                 let subdir = entry.path();
-                if subdir.is_dir()
-                    && self.try_find_in_dir(&subdir, identifier).is_some()
-                {
+                if subdir.is_dir() && self.try_find_in_dir(&subdir, identifier).is_some() {
                     return subdir
                         .file_name()
                         .and_then(|n| n.to_str())
