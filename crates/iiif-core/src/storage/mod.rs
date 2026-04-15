@@ -22,4 +22,8 @@ pub trait ImageStorage: Send + Sync {
 
     /// Get the last modification time of the image source file.
     fn last_modified(&self, identifier: &str) -> Result<std::time::SystemTime, IiifError>;
+
+    /// Return the subdirectory name the image resides in, or `None` if at root.
+    /// Used for directory-based access control.
+    fn containing_directory(&self, identifier: &str) -> Option<String>;
 }

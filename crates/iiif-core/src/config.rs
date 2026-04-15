@@ -42,8 +42,9 @@ pub struct AuthConfig {
     pub cookie_name: String,
     /// Token time-to-live in seconds.
     pub token_ttl: u64,
-    /// Image identifiers that require authorization (glob-like prefixes).
-    pub protected: Vec<String>,
+    /// Subdirectories of the images folder that require authorization.
+    /// Images in `images/restricted/` are protected when `protected_dirs = ["restricted"]`.
+    pub protected_dirs: Vec<String>,
     /// Simple user/password pairs for the "active" login flow.
     pub users: Vec<UserCredential>,
 }
@@ -61,7 +62,7 @@ impl Default for AuthConfig {
             pattern: "active".to_string(),
             cookie_name: "iiif_access".to_string(),
             token_ttl: 3600,
-            protected: Vec::new(),
+            protected_dirs: Vec::new(),
             users: Vec::new(),
         }
     }

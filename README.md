@@ -163,12 +163,34 @@ enabled = false
 pattern = "active"
 cookie_name = "iiif_access"
 token_ttl = 3600
-protected = ["protected"]
+protected_dirs = ["restricted"]
 
 [[auth.users]]
 username = "admin"
 password = "changeme"
 ```
+
+## Access Control
+
+Protection is directory-based. Images in subdirectories listed in `protected_dirs` require authentication; everything else is public.
+
+```
+images/
+├── painting.jpg              ← public (root)
+├── public/
+│   └── landscape.jpg         ← public
+└── restricted/
+    ├── manuscript.jpg         ← requires login
+    └── private_letter.jpg     ← requires login
+```
+
+```toml
+[auth]
+enabled = true
+protected_dirs = ["restricted"]
+```
+
+No naming conventions or patterns needed — just move the file to the right folder.
 
 ## Architecture
 

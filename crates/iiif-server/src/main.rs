@@ -52,7 +52,7 @@ async fn main() {
     let auth_store: Option<Arc<AuthStore>> = if config.auth.enabled {
         info!(
             pattern = %config.auth.pattern,
-            protected_count = config.auth.protected.len(),
+            protected_dirs = ?config.auth.protected_dirs,
             "Authorization Flow enabled"
         );
         Some(Arc::new(AuthStore::new(config.auth.token_ttl)))
@@ -95,14 +95,16 @@ async fn main() {
     if config.auth.enabled {
         app = app.merge(iiif_auth::router());
 
-        // Apply auth middleware — insert concrete Arc<AuthStore> for the middleware
+        // Apply auth middleware — inject config, cookie name, storage, and auth store
         let auth_config = config.auth.clone();
         let cookie_name = CookieName(config.auth.cookie_name.clone());
         let auth_store_mw = auth_store.clone();
+        let storage_for_mw: Arc<dyn iiif_core::storage::ImageStorage> = Arc::clone(&state.storage);
         app = app.layer(middleware::from_fn(
             move |mut req: axum::extract::Request, next: axum::middleware::Next| {
                 req.extensions_mut().insert(auth_config.clone());
                 req.extensions_mut().insert(cookie_name.clone());
+                req.extensions_mut().insert(Arc::clone(&storage_for_mw));
                 if let Some(ref store) = auth_store_mw {
                     req.extensions_mut().insert(Arc::clone(store));
                 }

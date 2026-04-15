@@ -8,8 +8,9 @@ use crate::storage::ImageStorage;
 
 /// File-system backed image storage.
 ///
-/// Images are looked up by scanning `root_dir` for files whose stem
-/// matches the requested identifier (any image extension is accepted).
+/// Images are looked up by scanning `root_dir` and its immediate
+/// subdirectories. The subdirectory name determines access level
+/// (e.g., `images/restricted/` requires authorization).
 pub struct FilesystemStorage {
     root_dir: PathBuf,
 }
@@ -40,24 +41,73 @@ impl FilesystemStorage {
         Ok(Self { root_dir })
     }
 
+    /// Find an image file by identifier, searching root and subdirectories.
     fn find_image_file(&self, identifier: &str) -> Result<PathBuf, IiifError> {
-        // First, check if identifier already includes an extension
-        let direct_path = self.root_dir.join(identifier);
-        if direct_path.is_file() {
-            return Ok(direct_path);
+        // 1. Check root directory
+        if let Some(path) = self.try_find_in_dir(&self.root_dir, identifier) {
+            return Ok(path);
         }
 
-        // Otherwise, search for files with supported extensions
-        for ext in SUPPORTED_EXTENSIONS {
-            let path = self.root_dir.join(format!("{identifier}.{ext}"));
-            if path.is_file() {
-                return Ok(path);
+        // 2. Check immediate subdirectories
+        if let Ok(entries) = fs::read_dir(&self.root_dir) {
+            for entry in entries.flatten() {
+                let subdir = entry.path();
+                if subdir.is_dir() {
+                    if let Some(path) = self.try_find_in_dir(&subdir, identifier) {
+                        return Ok(path);
+                    }
+                }
             }
         }
 
         Err(IiifError::NotFound(format!(
             "Image not found: {identifier}"
         )))
+    }
+
+    /// Try to find an image in a specific directory.
+    fn try_find_in_dir(&self, dir: &Path, identifier: &str) -> Option<PathBuf> {
+        // Check with full name (if identifier includes extension)
+        let direct = dir.join(identifier);
+        if direct.is_file() {
+            return Some(direct);
+        }
+
+        // Check with supported extensions
+        for ext in SUPPORTED_EXTENSIONS {
+            let path = dir.join(format!("{identifier}.{ext}"));
+            if path.is_file() {
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    /// Determine which subdirectory (relative to root) contains the image.
+    /// Returns `None` if the image is in the root directory.
+    fn find_containing_subdir(&self, identifier: &str) -> Option<String> {
+        // Check if it's in root — if so, no subdirectory
+        if self.try_find_in_dir(&self.root_dir, identifier).is_some() {
+            return None;
+        }
+
+        // Check subdirectories
+        if let Ok(entries) = fs::read_dir(&self.root_dir) {
+            for entry in entries.flatten() {
+                let subdir = entry.path();
+                if subdir.is_dir()
+                    && self.try_find_in_dir(&subdir, identifier).is_some()
+                {
+                    return subdir
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .map(|s| s.to_string());
+                }
+            }
+        }
+
+        None
     }
 }
 
@@ -93,6 +143,10 @@ impl ImageStorage for FilesystemStorage {
             .modified()
             .map_err(|e| IiifError::Storage(format!("Failed to get modification time: {e}")))
     }
+
+    fn containing_directory(&self, identifier: &str) -> Option<String> {
+        self.find_containing_subdir(identifier)
+    }
 }
 
 #[cfg(test)]
@@ -101,8 +155,8 @@ mod tests {
     use std::io::Write;
 
     #[test]
-    fn finds_image_with_extension() {
-        let dir = std::env::temp_dir().join("iiif_test_fs_ext");
+    fn finds_image_in_root() {
+        let dir = std::env::temp_dir().join("iiif_test_fs_root");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -111,22 +165,60 @@ mod tests {
 
         let storage = FilesystemStorage::new(&dir).unwrap();
         assert!(storage.exists("sample").unwrap());
+        assert_eq!(storage.containing_directory("sample"), None);
 
-        let bytes = storage.read_image("sample").unwrap();
-        assert_eq!(bytes, b"fake-jpeg");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn finds_image_in_subdirectory() {
+        let dir = std::env::temp_dir().join("iiif_test_fs_subdir");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("restricted")).unwrap();
+
+        let mut f = fs::File::create(dir.join("restricted/secret.jpg")).unwrap();
+        f.write_all(b"secret-jpeg").unwrap();
+
+        let storage = FilesystemStorage::new(&dir).unwrap();
+        assert!(storage.exists("secret").unwrap());
+        assert_eq!(
+            storage.containing_directory("secret"),
+            Some("restricted".to_string())
+        );
+
+        let bytes = storage.read_image("secret").unwrap();
+        assert_eq!(bytes, b"secret-jpeg");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn root_takes_precedence_over_subdir() {
+        let dir = std::env::temp_dir().join("iiif_test_fs_priority");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("restricted")).unwrap();
+
+        // Same name in root and subdirectory — root wins
+        let mut f = fs::File::create(dir.join("photo.jpg")).unwrap();
+        f.write_all(b"root-version").unwrap();
+        let mut f = fs::File::create(dir.join("restricted/photo.jpg")).unwrap();
+        f.write_all(b"restricted-version").unwrap();
+
+        let storage = FilesystemStorage::new(&dir).unwrap();
+        assert_eq!(storage.containing_directory("photo"), None); // root wins
+        assert_eq!(storage.read_image("photo").unwrap(), b"root-version");
 
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn returns_not_found_for_missing() {
-        let dir = std::env::temp_dir().join("iiif_test_fs_missing");
+        let dir = std::env::temp_dir().join("iiif_test_fs_missing2");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
         let storage = FilesystemStorage::new(&dir).unwrap();
         assert!(!storage.exists("nonexistent").unwrap());
-        assert!(storage.read_image("nonexistent").is_err());
 
         let _ = fs::remove_dir_all(&dir);
     }

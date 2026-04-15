@@ -106,35 +106,9 @@ pub fn build_auth_service_descriptor(base_url: &str, resource_id: &str) -> AuthS
     }
 }
 
-/// Check if an identifier matches any of the protected patterns.
-pub fn is_protected(identifier: &str, protected_patterns: &[String]) -> bool {
-    protected_patterns.iter().any(|pattern| {
-        if pattern.ends_with('*') {
-            let prefix = &pattern[..pattern.len() - 1];
-            identifier.starts_with(prefix)
-        } else {
-            identifier == pattern
-        }
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn exact_match() {
-        assert!(is_protected("protected", &["protected".to_string()]));
-        assert!(!is_protected("public", &["protected".to_string()]));
-    }
-
-    #[test]
-    fn wildcard_match() {
-        let patterns = vec!["secret_*".to_string()];
-        assert!(is_protected("secret_image", &patterns));
-        assert!(is_protected("secret_", &patterns));
-        assert!(!is_protected("public_image", &patterns));
-    }
 
     #[test]
     fn auth_service_serializes() {

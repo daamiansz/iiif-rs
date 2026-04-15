@@ -19,7 +19,7 @@ enabled = true
 pattern = "active"
 cookie_name = "iiif_access"
 token_ttl = 3600
-protected = ["protected"]
+protected_dirs = ["restricted"]
 
 [[auth.users]]
 username = "admin"

@@ -1,28 +1,32 @@
+use std::sync::Arc;
+
 use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 use iiif_core::config::AuthConfig;
-
-use crate::types::is_protected;
+use iiif_core::storage::ImageStorage;
 
 /// Middleware that checks the access cookie for protected image resources.
 ///
-/// If the requested image identifier matches a protected pattern and no valid
-/// session cookie is present, the request is rejected with 401.
-///
-/// This middleware should be applied to Image API routes.
+/// Protection is directory-based: images in subdirectories listed in
+/// `auth.protected_dirs` (e.g., `restricted/`) require a valid session cookie.
+/// Images in the root or other directories are served without authentication.
 pub async fn check_access(request: Request, next: Next) -> Response {
-    // Extract identifier from path: /{identifier}/... or /{identifier}
     let path = request.uri().path();
     let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
-    // Skip non-image routes (auth, manifest, collection)
-    if segments
-        .first()
-        .is_some_and(|s| *s == "auth" || *s == "manifest" || *s == "collection")
-    {
+    // Skip non-image routes
+    if segments.first().is_some_and(|s| {
+        *s == "auth"
+            || *s == "manifest"
+            || *s == "collection"
+            || *s == "search"
+            || *s == "autocomplete"
+            || *s == "content-state"
+            || *s == "activity"
+    }) {
         return next.run(request).await;
     }
 
@@ -31,68 +35,38 @@ pub async fn check_access(request: Request, next: Next) -> Response {
         None => return next.run(request).await,
     };
 
-    // Get auth config from extensions (set by the server)
+    // Get auth config and storage from extensions
     let auth_config = request.extensions().get::<AuthConfig>();
     let cookie_name = request.extensions().get::<CookieName>();
+    let storage = request.extensions().get::<Arc<dyn ImageStorage>>();
 
-    let (auth_config, cookie_name) = match (auth_config, cookie_name) {
-        (Some(ac), Some(cn)) => (ac, &cn.0),
+    let (auth_config, cookie_name, storage) = match (auth_config, cookie_name, storage) {
+        (Some(ac), Some(cn), Some(st)) => (ac, &cn.0, st),
         _ => return next.run(request).await,
     };
 
-    if !auth_config.enabled || !is_protected(identifier, &auth_config.protected) {
+    if !auth_config.enabled {
         return next.run(request).await;
     }
 
-    // Check for valid session cookie
-    let has_valid_cookie = request
-        .headers()
-        .get("cookie")
-        .and_then(|v| v.to_str().ok())
-        .map(|cookies| {
-            cookies.split(';').any(|pair| {
-                let pair = pair.trim();
-                if let Some((name, value)) = pair.split_once('=') {
-                    name.trim() == cookie_name && !value.trim().is_empty()
-                } else {
-                    false
-                }
-            })
-        })
-        .unwrap_or(false);
+    // Check which directory the image is in
+    let subdir = storage.containing_directory(identifier);
+    let is_protected = match &subdir {
+        Some(dir) => auth_config.protected_dirs.iter().any(|d| d == dir),
+        None => false,
+    };
 
-    if has_valid_cookie {
-        // Cookie present — validate session via the auth store
-        let auth_store = request
-            .extensions()
-            .get::<std::sync::Arc<crate::AuthStore>>();
-        let session_valid = auth_store.is_some_and(|store| {
-            let cookie_val = request
-                .headers()
-                .get("cookie")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|cookies| {
-                    cookies.split(';').find_map(|pair| {
-                        let pair = pair.trim();
-                        let (name, value) = pair.split_once('=')?;
-                        if name.trim() == cookie_name {
-                            Some(value.trim().to_string())
-                        } else {
-                            None
-                        }
-                    })
-                });
-            cookie_val
-                .map(|sid| store.validate_session(&sid).is_some())
-                .unwrap_or(false)
-        });
-
-        if session_valid {
-            return next.run(request).await;
-        }
+    if !is_protected {
+        return next.run(request).await;
     }
 
-    // No valid session — return 401
+    // Protected resource — check for valid session cookie
+    let session_valid = check_session_cookie(&request, cookie_name);
+
+    if session_valid {
+        return next.run(request).await;
+    }
+
     (
         StatusCode::UNAUTHORIZED,
         serde_json::json!({
@@ -102,6 +76,32 @@ pub async fn check_access(request: Request, next: Next) -> Response {
         .to_string(),
     )
         .into_response()
+}
+
+/// Validate the session cookie against the auth store.
+fn check_session_cookie(request: &Request, cookie_name: &str) -> bool {
+    let auth_store = request.extensions().get::<Arc<crate::AuthStore>>();
+
+    let cookie_val = request
+        .headers()
+        .get("cookie")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|cookies| {
+            cookies.split(';').find_map(|pair| {
+                let pair = pair.trim();
+                let (name, value) = pair.split_once('=')?;
+                if name.trim() == cookie_name {
+                    Some(value.trim().to_string())
+                } else {
+                    None
+                }
+            })
+        });
+
+    match (auth_store, cookie_val) {
+        (Some(store), Some(sid)) => store.validate_session(&sid).is_some(),
+        _ => false,
+    }
 }
 
 /// Newtype wrapper so we can insert the cookie name into axum extensions.
