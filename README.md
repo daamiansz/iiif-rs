@@ -32,9 +32,9 @@ A complete [IIIF](https://iiif.io/) (International Image Interoperability Framew
 ```bash
 # Clone the repository
 git clone https://github.com/daamiansz/iiif-rs.git
-cd iiif-server
+cd iiif-rs
 
-# Add images to the images/ directory
+# Add images (see Image Directory Structure below)
 cp /path/to/your/images/*.jpg images/
 
 # Start the server
@@ -170,27 +170,47 @@ username = "admin"
 password = "changeme"
 ```
 
-## Access Control
+## Image Directory Structure
 
-Protection is directory-based. Images in subdirectories listed in `protected_dirs` require authentication; everything else is public.
+The server scans `images/` and its immediate subdirectories. The image filename (without extension) becomes the identifier in URLs.
 
 ```
 images/
-├── painting.jpg              ← public (root)
+├── painting.jpg              → http://localhost:8080/painting/info.json
+├── photo.png                 → http://localhost:8080/photo/info.json
 ├── public/
-│   └── landscape.jpg         ← public
+│   └── landscape.jpg         → http://localhost:8080/landscape/info.json
 └── restricted/
-    ├── manuscript.jpg         ← requires login
-    └── private_letter.jpg     ← requires login
+    ├── manuscript.jpg         → http://localhost:8080/manuscript/info.json
+    └── private_letter.jpg     → http://localhost:8080/private_letter/info.json
 ```
+
+- Images in the **root** and any **non-protected** subdirectory are publicly accessible
+- Images in subdirectories listed in `protected_dirs` require authentication
+- The subdirectory name does **not** appear in the URL — only the filename matters
+- Supported formats: JPEG, PNG, WebP, GIF, TIFF
+
+## Access Control
+
+Protection is directory-based. Enable auth and list which subdirectories require login:
 
 ```toml
 [auth]
 enabled = true
 protected_dirs = ["restricted"]
+
+[[auth.users]]
+username = "admin"
+password = "changeme"
 ```
 
-No naming conventions or patterns needed — just move the file to the right folder.
+| Image location | URL | Without login | After login |
+|---|---|---|---|
+| `images/painting.jpg` | `/painting/info.json` | 200 | 200 |
+| `images/public/landscape.jpg` | `/landscape/info.json` | 200 | 200 |
+| `images/restricted/manuscript.jpg` | `/manuscript/info.json` | 401 | 200 |
+
+No naming conventions or patterns — just move the file to the right folder.
 
 ## Architecture
 
