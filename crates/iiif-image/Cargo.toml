@@ -16,3 +16,4 @@ tracing = { workspace = true }
 image = { workspace = true }
 percent-encoding = { workspace = true }
 httpdate = { workspace = true }
+moka = { workspace = true }

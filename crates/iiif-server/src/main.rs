@@ -9,14 +9,19 @@ use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+use std::time::Duration;
+
+use axum::http::StatusCode;
 use iiif_auth::middleware::{check_access, CookieName};
 use iiif_auth::AuthStore;
 use iiif_core::config::AppConfig;
 use iiif_core::state::AppState;
 use iiif_core::storage::filesystem::FilesystemStorage;
 use iiif_discovery::ActivityStore;
+use iiif_image::handlers::ImageCache;
 use iiif_search::index::IndexedAnnotation;
 use iiif_search::SearchIndex;
+use tower_http::timeout::TimeoutLayer;
 
 #[tokio::main]
 async fn main() {
@@ -73,6 +78,19 @@ async fn main() {
         "Activity store initialized"
     );
 
+    // Initialize response cache
+    let image_cache: Option<Arc<dyn std::any::Any + Send + Sync>> =
+        if config.performance.cache_max_entries > 0 {
+            let cache: ImageCache = moka::sync::Cache::new(config.performance.cache_max_entries);
+            info!(
+                max_entries = config.performance.cache_max_entries,
+                "Image response cache enabled"
+            );
+            Some(Arc::new(cache))
+        } else {
+            None
+        };
+
     let state = AppState {
         config: Arc::new(config.clone()),
         storage: Arc::new(storage),
@@ -81,6 +99,7 @@ async fn main() {
             .map(|s| s as Arc<dyn std::any::Any + Send + Sync>),
         search: Some(search_index as Arc<dyn std::any::Any + Send + Sync>),
         discovery: Some(activity_store as Arc<dyn std::any::Any + Send + Sync>),
+        cache: image_cache,
     };
 
     // Build application with middleware
@@ -113,7 +132,24 @@ async fn main() {
         ));
     }
 
-    let app = app
+    // Metrics endpoint
+    if config.performance.metrics_enabled {
+        let metrics_handle = metrics_exporter_prometheus::PrometheusBuilder::new()
+            .install_recorder()
+            .expect("Failed to install Prometheus recorder");
+        app = app.route(
+            "/metrics",
+            axum::routing::get(move || {
+                let h = metrics_handle.clone();
+                async move { h.render() }
+            }),
+        );
+    }
+
+    // Request timeout
+    let timeout_secs = config.performance.request_timeout_secs;
+
+    let mut final_app = app
         .layer(CompressionLayer::new())
         .layer(
             CorsLayer::new()
@@ -121,8 +157,17 @@ async fn main() {
                 .allow_methods(Any)
                 .allow_headers(Any),
         )
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .layer(TraceLayer::new_for_http());
+
+    if timeout_secs > 0 {
+        final_app = final_app.layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(timeout_secs),
+        ));
+        info!(timeout_secs, "Request timeout enabled");
+    }
+
+    let app = final_app.with_state(state);
 
     // Start server
     let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
@@ -237,6 +282,20 @@ fn apply_env_overrides(config: &mut AppConfig) {
         if let Ok(n) = v.parse() {
             config.auth.token_ttl = n;
         }
+    }
+    // Performance
+    if let Ok(v) = std::env::var("IIIF_CACHE_MAX_ENTRIES") {
+        if let Ok(n) = v.parse() {
+            config.performance.cache_max_entries = n;
+        }
+    }
+    if let Ok(v) = std::env::var("IIIF_REQUEST_TIMEOUT") {
+        if let Ok(n) = v.parse() {
+            config.performance.request_timeout_secs = n;
+        }
+    }
+    if let Ok(v) = std::env::var("IIIF_METRICS_ENABLED") {
+        config.performance.metrics_enabled = v == "true" || v == "1";
     }
 }
 

@@ -15,4 +15,6 @@ pub struct AppState {
     pub search: Option<Arc<dyn Any + Send + Sync>>,
     /// Optional activity/discovery store (type-erased).
     pub discovery: Option<Arc<dyn Any + Send + Sync>>,
+    /// Optional response cache (type-erased moka::sync::Cache).
+    pub cache: Option<Arc<dyn Any + Send + Sync>>,
 }

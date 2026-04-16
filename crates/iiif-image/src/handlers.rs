@@ -20,9 +20,14 @@ use iiif_core::error::IiifError;
 use iiif_core::identifier::ImageIdentifier;
 use iiif_core::state::AppState;
 
+use moka::sync::Cache;
+
 use crate::info::ImageInfo;
 use crate::params::{parse_quality_format, OutputFormat, Quality, Region, Rotation, Size};
 use crate::pipeline;
+
+/// Type alias for the processed image cache.
+pub type ImageCache = Cache<String, Arc<Vec<u8>>>;
 
 const PROFILE_URI: &str = "http://iiif.io/api/image/3/level2.json";
 
@@ -182,7 +187,32 @@ async fn image_handler(
         return Ok(not_modified_response(&etag, mtime));
     }
 
-    let (source, img_w, img_h) = tokio::task::spawn_blocking(move || {
+    // Build cache key from request params + file mtime
+    let cache_key = etag.clone();
+
+    // Try cache first
+    let image_cache = state
+        .cache
+        .as_ref()
+        .and_then(|c| c.downcast_ref::<ImageCache>());
+
+    if let Some(cached) = image_cache.and_then(|c| c.get(&cache_key)) {
+        tracing::debug!("Cache hit: {cache_key}");
+        return Ok(build_image_response(
+            &cached,
+            &etag,
+            mtime,
+            &format,
+            &state,
+            &raw_identifier,
+            &region,
+            &size,
+            &rotation,
+            &quality,
+        ));
+    }
+
+    let (source, _img_w, _img_h) = tokio::task::spawn_blocking(move || {
         let bytes = storage.read_image(&id_str)?;
         let dims = pipeline::get_dimensions(&bytes)?;
         Ok::<_, IiifError>((bytes, dims.0, dims.1))
@@ -216,26 +246,11 @@ async fn image_handler(
         e
     })?;
 
-    let canonical = build_canonical_uri(&CanonicalParams {
-        base_url: &state.config.server.base_url,
-        identifier: &raw_identifier,
-        region: &region,
-        size: &size,
-        rotation: &rotation,
-        quality: &quality,
-        format: &format,
-        img_w,
-        img_h,
-        config: &state.config.image,
-    });
-
-    let mut headers = common_headers(&etag, mtime);
-    headers.insert(
-        CONTENT_TYPE,
-        format.content_type().parse().expect("valid header value"),
-    );
-    let link_value = format!("<{PROFILE_URI}>;rel=\"profile\",<{canonical}>;rel=\"canonical\"");
-    headers.insert(LINK, link_value.parse().expect("valid header value"));
+    // Store in cache
+    let output = Arc::new(output);
+    if let Some(cache) = image_cache {
+        cache.insert(cache_key, Arc::clone(&output));
+    }
 
     info!(
         identifier = %identifier,
@@ -244,10 +259,61 @@ async fn image_handler(
         rotation = %raw_rotation,
         quality_format = %raw_quality_format,
         output_bytes = output.len(),
+        cached = false,
         "Served image"
     );
 
-    Ok((StatusCode::OK, headers, output).into_response())
+    Ok(build_image_response(
+        &output,
+        &etag,
+        mtime,
+        &format,
+        &state,
+        &raw_identifier,
+        &region,
+        &size,
+        &rotation,
+        &quality,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_image_response(
+    output: &[u8],
+    etag: &str,
+    mtime: Option<SystemTime>,
+    format: &OutputFormat,
+    state: &AppState,
+    raw_identifier: &str,
+    region: &Region,
+    size: &Size,
+    rotation: &Rotation,
+    quality: &Quality,
+) -> Response {
+    let img_w = 0; // canonical URI is best-effort from cache hits
+    let img_h = 0;
+    let canonical = build_canonical_uri(&CanonicalParams {
+        base_url: &state.config.server.base_url,
+        identifier: raw_identifier,
+        region,
+        size,
+        rotation,
+        quality,
+        format,
+        img_w,
+        img_h,
+        config: &state.config.image,
+    });
+
+    let mut headers = common_headers(etag, mtime);
+    headers.insert(
+        CONTENT_TYPE,
+        format.content_type().parse().expect("valid header value"),
+    );
+    let link_value = format!("<{PROFILE_URI}>;rel=\"profile\",<{canonical}>;rel=\"canonical\"");
+    headers.insert(LINK, link_value.parse().expect("valid header value"));
+
+    (StatusCode::OK, headers, output.to_vec()).into_response()
 }
 
 // ---------------------------------------------------------------------------

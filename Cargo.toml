@@ -26,7 +26,10 @@ categories = ["web-programming::http-server", "multimedia::images"]
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "compression-gzip", "compression-br", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "compression-br", "trace", "timeout", "limit"] }
+moka = { version = "0.12", features = ["sync"] }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

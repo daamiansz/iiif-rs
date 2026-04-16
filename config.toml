@@ -24,3 +24,9 @@ protected_dirs = ["restricted"]
 [[auth.users]]
 username = "admin"
 password = "admin123"
+
+[performance]
+cache_max_entries = 1000
+request_timeout_secs = 30
+rate_limit_rps = 0
+metrics_enabled = false

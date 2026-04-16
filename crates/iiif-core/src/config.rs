@@ -7,6 +7,8 @@ pub struct AppConfig {
     pub storage: StorageConfig,
     #[serde(default)]
     pub auth: AuthConfig,
+    #[serde(default)]
+    pub performance: PerformanceConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -68,6 +70,30 @@ impl Default for AuthConfig {
     }
 }
 
+/// Performance and production tuning.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PerformanceConfig {
+    /// Maximum cached processed images (LRU eviction).
+    pub cache_max_entries: u64,
+    /// Request timeout in seconds (0 = no timeout).
+    pub request_timeout_secs: u64,
+    /// Rate limit: max requests per second per IP (0 = unlimited).
+    pub rate_limit_rps: u64,
+    /// Enable Prometheus metrics on /metrics endpoint.
+    pub metrics_enabled: bool,
+}
+
+impl Default for PerformanceConfig {
+    fn default() -> Self {
+        Self {
+            cache_max_entries: 1000,
+            request_timeout_secs: 30,
+            rate_limit_rps: 0,
+            metrics_enabled: false,
+        }
+    }
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -88,6 +114,7 @@ impl Default for AppConfig {
                 root_path: "./images".to_string(),
             },
             auth: AuthConfig::default(),
+            performance: PerformanceConfig::default(),
         }
     }
 }
