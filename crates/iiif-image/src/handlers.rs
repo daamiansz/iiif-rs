@@ -196,8 +196,9 @@ async fn image_handler(
         .as_ref()
         .and_then(|c| c.downcast_ref::<ImageCache>());
 
+    // 1. Memory cache
     if let Some(cached) = image_cache.and_then(|c| c.get(&cache_key)) {
-        tracing::debug!("Cache hit: {cache_key}");
+        tracing::debug!("Memory cache hit: {cache_key}");
         return Ok(build_image_response(
             &cached,
             &etag,
@@ -210,6 +211,31 @@ async fn image_handler(
             &rotation,
             &quality,
         ));
+    }
+
+    // 2. Disk tile cache
+    let tile_cache_dir = state.config.performance.tile_cache_dir.as_deref();
+    if let Some(dir) = tile_cache_dir {
+        let disk_path = disk_cache_path(dir, &cache_key, &format);
+        if let Ok(bytes) = std::fs::read(&disk_path) {
+            tracing::debug!("Disk cache hit: {}", disk_path.display());
+            let bytes = Arc::new(bytes);
+            if let Some(cache) = image_cache {
+                cache.insert(cache_key.clone(), Arc::clone(&bytes));
+            }
+            return Ok(build_image_response(
+                &bytes,
+                &etag,
+                mtime,
+                &format,
+                &state,
+                &raw_identifier,
+                &region,
+                &size,
+                &rotation,
+                &quality,
+            ));
+        }
     }
 
     let (source, _img_w, _img_h) = tokio::task::spawn_blocking(move || {
@@ -246,10 +272,19 @@ async fn image_handler(
         e
     })?;
 
-    // Store in cache
+    // Store in memory cache
     let output = Arc::new(output);
     if let Some(cache) = image_cache {
-        cache.insert(cache_key, Arc::clone(&output));
+        cache.insert(cache_key.clone(), Arc::clone(&output));
+    }
+
+    // Store in disk tile cache
+    if let Some(dir) = tile_cache_dir {
+        let disk_path = disk_cache_path(dir, &cache_key, &format);
+        if let Some(parent) = disk_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&disk_path, output.as_ref());
     }
 
     info!(
@@ -314,6 +349,14 @@ fn build_image_response(
     headers.insert(LINK, link_value.parse().expect("valid header value"));
 
     (StatusCode::OK, headers, output.to_vec()).into_response()
+}
+
+/// Build path for disk tile cache: `{dir}/{hash}.{ext}`
+fn disk_cache_path(dir: &str, cache_key: &str, format: &OutputFormat) -> std::path::PathBuf {
+    let mut hasher = DefaultHasher::new();
+    cache_key.hash(&mut hasher);
+    let hash = format!("{:016x}", hasher.finish());
+    std::path::PathBuf::from(dir).join(format!("{hash}.{format}"))
 }
 
 // ---------------------------------------------------------------------------

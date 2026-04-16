@@ -26,3 +26,5 @@ toml = { workspace = true }
 moka = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
+tower_governor = { workspace = true }
+axum-server = { workspace = true }

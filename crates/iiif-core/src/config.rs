@@ -16,6 +16,12 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub base_url: String,
+    /// Path to TLS certificate file (PEM). Enables HTTPS + HTTP/2 when set.
+    #[serde(default)]
+    pub tls_cert: Option<String>,
+    /// Path to TLS private key file (PEM).
+    #[serde(default)]
+    pub tls_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -81,6 +87,9 @@ pub struct PerformanceConfig {
     pub rate_limit_rps: u64,
     /// Enable Prometheus metrics on /metrics endpoint.
     pub metrics_enabled: bool,
+    /// Path for disk tile cache. Empty = disabled.
+    #[serde(default)]
+    pub tile_cache_dir: Option<String>,
 }
 
 impl Default for PerformanceConfig {
@@ -90,6 +99,7 @@ impl Default for PerformanceConfig {
             request_timeout_secs: 30,
             rate_limit_rps: 0,
             metrics_enabled: false,
+            tile_cache_dir: None,
         }
     }
 }
@@ -101,6 +111,8 @@ impl Default for AppConfig {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
                 base_url: "http://localhost:8080".to_string(),
+                tls_cert: None,
+                tls_key: None,
             },
             image: ImageConfig {
                 max_width: Some(4096),

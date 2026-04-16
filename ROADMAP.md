@@ -4,13 +4,13 @@ Future development plan for iiif-rs. Contributions welcome for any item.
 
 ## v0.2.0 — Performance & Production Readiness
 
-- [ ] **libvips integration** — Replace `image` crate with libvips bindings for 5-10x faster image processing, lower memory usage, and streaming pipeline
-- [ ] **Response caching** — In-memory LRU cache (moka) for processed images; cache key = request URI + file mtime
-- [ ] **Disk tile cache** — Pre-generate and cache tiles on disk for frequently accessed images; serve directly without re-processing
-- [ ] **HTTP/2 + TLS** — Native HTTPS support via rustls; HTTP/2 for concurrent tile loading
-- [ ] **Rate limiting** — Per-IP request throttling via tower middleware to prevent abuse
-- [ ] **Request timeout** — Configurable timeout for image processing to prevent resource exhaustion
-- [ ] **Prometheus metrics** — `/metrics` endpoint with request count, latency histograms, cache hit rate, active connections
+- [x] **Response caching** — In-memory LRU cache (moka) for processed images; ~40% faster on cache hits
+- [x] **Disk tile cache** — Cache processed images on disk; survives restarts
+- [x] **HTTP/2 + TLS** — Native HTTPS support via rustls; HTTP/2 for concurrent tile loading
+- [x] **Rate limiting** — Per-IP request throttling via tower_governor middleware
+- [x] **Request timeout** — Configurable timeout with 408 status on expiry
+- [x] **Prometheus metrics** — `/metrics` endpoint (opt-in)
+- [ ] **libvips integration** — Blocked: Rust bindings (`libvips` and `libvips-rs` crates) incompatible with Rust 1.94+. Benchmarked at 6-27x faster. Will integrate when crates are updated.
 
 ## v0.3.0 — Storage Backends
 

@@ -21,6 +21,7 @@ use iiif_discovery::ActivityStore;
 use iiif_image::handlers::ImageCache;
 use iiif_search::index::IndexedAnnotation;
 use iiif_search::SearchIndex;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::timeout::TimeoutLayer;
 
 #[tokio::main]
@@ -146,6 +147,20 @@ async fn main() {
         );
     }
 
+    // Rate limiting
+    let rate_limit_rps = config.performance.rate_limit_rps;
+    if rate_limit_rps > 0 {
+        let governor_conf = GovernorConfigBuilder::default()
+            .per_second(rate_limit_rps)
+            .burst_size(rate_limit_rps as u32 * 2)
+            .finish()
+            .expect("valid governor config");
+        app = app.layer(GovernorLayer {
+            config: governor_conf.into(),
+        });
+        info!(rps = rate_limit_rps, "Rate limiting enabled");
+    }
+
     // Request timeout
     let timeout_secs = config.performance.request_timeout_secs;
 
@@ -177,22 +192,41 @@ async fn main() {
             std::process::exit(1);
         });
 
-    info!(%addr, "IIIF server listening");
-
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .unwrap_or_else(|e| {
-            error!("Failed to bind to {addr}: {e}");
-            std::process::exit(1);
-        });
-
-    axum::serve(listener, app)
+    // TLS / HTTP/2 or plain HTTP
+    if let (Some(cert_path), Some(key_path)) = (&config.server.tls_cert, &config.server.tls_key) {
+        info!(%addr, cert = %cert_path, "IIIF server listening (HTTPS + HTTP/2)");
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
+            .await
+            .unwrap_or_else(|e| {
+                error!("Failed to load TLS certificates: {e}");
+                std::process::exit(1);
+            });
+        axum_server::bind_rustls(addr, tls_config)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .unwrap_or_else(|e| {
+                error!("Server error: {e}");
+                std::process::exit(1);
+            });
+    } else {
+        info!(%addr, "IIIF server listening (HTTP)");
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .unwrap_or_else(|e| {
+                error!("Failed to bind to {addr}: {e}");
+                std::process::exit(1);
+            });
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
         .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap_or_else(|e| {
             error!("Server error: {e}");
             std::process::exit(1);
         });
+    }
 
     info!("Server shut down gracefully");
 }
@@ -246,6 +280,12 @@ fn apply_env_overrides(config: &mut AppConfig) {
     if let Ok(v) = std::env::var("IIIF_BASE_URL") {
         config.server.base_url = v;
     }
+    if let Ok(v) = std::env::var("IIIF_TLS_CERT") {
+        config.server.tls_cert = Some(v);
+    }
+    if let Ok(v) = std::env::var("IIIF_TLS_KEY") {
+        config.server.tls_key = Some(v);
+    }
     if let Ok(v) = std::env::var("IIIF_STORAGE_PATH") {
         config.storage.root_path = v;
     }
@@ -296,6 +336,9 @@ fn apply_env_overrides(config: &mut AppConfig) {
     }
     if let Ok(v) = std::env::var("IIIF_METRICS_ENABLED") {
         config.performance.metrics_enabled = v == "true" || v == "1";
+    }
+    if let Ok(v) = std::env::var("IIIF_TILE_CACHE_DIR") {
+        config.performance.tile_cache_dir = if v.is_empty() { None } else { Some(v) };
     }
 }
 
