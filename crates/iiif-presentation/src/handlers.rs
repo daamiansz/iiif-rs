@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
 use axum::extract::{Path, State};
 use axum::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
-use serde_json::json;
 use tracing::{error, info, warn};
 
 use iiif_core::error::IiifError;
@@ -28,13 +25,12 @@ pub fn router() -> Router<AppState> {
 async fn manifest_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
-) -> Result<Response, PresentationError> {
-    let storage = Arc::clone(&state.storage);
-    let identifier = id.clone();
-
-    // Read image and get dimensions (all in blocking thread)
+) -> Result<Response, IiifError> {
+    let bytes = state.storage.read_image(&id).await.map_err(|e| {
+        warn!(identifier = %id, error = %e, "Image not found for manifest");
+        e
+    })?;
     let (width, height) = tokio::task::spawn_blocking(move || {
-        let bytes = storage.read_image(&identifier)?;
         let reader = image::ImageReader::new(std::io::Cursor::new(&bytes))
             .with_guessed_format()
             .map_err(|e| IiifError::ImageProcessing(format!("Failed to guess format: {e}")))?;
@@ -43,11 +39,7 @@ async fn manifest_handler(
             .map_err(|e| IiifError::ImageProcessing(format!("Failed to read dimensions: {e}")))
     })
     .await
-    .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))?
-    .map_err(|e| {
-        warn!(identifier = %id, error = %e, "Image not found for manifest");
-        e
-    })?;
+    .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))??;
 
     let is_protected = if state.config.auth.enabled {
         state
@@ -76,22 +68,17 @@ async fn manifest_handler(
 async fn collection_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
-) -> Result<Response, PresentationError> {
+) -> Result<Response, IiifError> {
     if id != "top" {
-        return Err(IiifError::NotFound(format!("Collection not found: {id}")).into());
+        return Err(IiifError::NotFound(format!("Collection not found: {id}")));
     }
 
-    let storage = Arc::clone(&state.storage);
-    let images_dir = state.config.storage.root_path.clone();
-
-    let images =
-        tokio::task::spawn_blocking(move || builder::scan_images(storage.as_ref(), &images_dir))
-            .await
-            .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))?
-            .map_err(|e| {
-                error!(error = %e, "Failed to scan images");
-                e
-            })?;
+    let images = builder::scan_images(state.storage.as_ref(), &state.config.storage.root_path)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to scan images");
+            e
+        })?;
 
     let collection = builder::build_root_collection(&images, &state.config);
 
@@ -120,43 +107,3 @@ fn response_headers() -> HeaderMap {
     headers
 }
 
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
-
-struct PresentationError(IiifError);
-
-impl From<IiifError> for PresentationError {
-    fn from(err: IiifError) -> Self {
-        Self(err)
-    }
-}
-
-impl IntoResponse for PresentationError {
-    fn into_response(self) -> Response {
-        let status = match self.0.http_status_code() {
-            400 => StatusCode::BAD_REQUEST,
-            404 => StatusCode::NOT_FOUND,
-            501 => StatusCode::NOT_IMPLEMENTED,
-            503 => StatusCode::SERVICE_UNAVAILABLE,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        let body = json!({
-            "error": self.0.to_string(),
-            "status": status.as_u16(),
-        });
-
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            "application/json".parse().expect("valid header value"),
-        );
-        headers.insert(
-            ACCESS_CONTROL_ALLOW_ORIGIN,
-            "*".parse().expect("valid header value"),
-        );
-
-        (status, headers, body.to_string()).into_response()
-    }
-}

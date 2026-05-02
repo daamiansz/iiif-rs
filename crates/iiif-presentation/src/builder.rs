@@ -1,20 +1,16 @@
 use std::io::Cursor;
 
-use serde_json::json;
 use tracing::debug;
 
 use iiif_core::config::AppConfig;
 use iiif_core::error::IiifError;
+use iiif_core::services::{ImageService3, Service};
 use iiif_core::storage::ImageStorage;
 
 use crate::types::*;
 
-fn image_service3(id: &str) -> serde_json::Value {
-    json!({
-        "id": id,
-        "type": "ImageService3",
-        "profile": "level2",
-    })
+fn image_service3(id: &str) -> Service {
+    Service::ImageService3(ImageService3::level2(id))
 }
 
 /// Build a Manifest for a single image, auto-linking to the Image API service.
@@ -171,7 +167,7 @@ pub fn build_root_collection(identifiers: &[(String, u32, u32)], config: &AppCon
 }
 
 /// Scan the storage for all images and return their identifiers with dimensions.
-pub fn scan_images(
+pub async fn scan_images(
     storage: &dyn ImageStorage,
     images_dir: &str,
 ) -> Result<Vec<(String, u32, u32)>, IiifError> {
@@ -208,7 +204,7 @@ pub fn scan_images(
             None => continue,
         };
 
-        match storage.read_image(&stem) {
+        match storage.read_image(&stem).await {
             Ok(bytes) => {
                 let reader = image::ImageReader::new(Cursor::new(&bytes))
                     .with_guessed_format()

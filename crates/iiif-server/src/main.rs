@@ -1,8 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::middleware;
-use axum::Router;
+use axum::{middleware, Extension, Router};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -58,7 +57,6 @@ async fn main() {
         std::process::exit(1);
     });
 
-    // Initialize auth store (if enabled)
     let auth_store: Option<Arc<AuthStore>> = if config.auth.enabled {
         info!(
             pattern = %config.auth.pattern,
@@ -79,55 +77,54 @@ async fn main() {
         "Activity store initialized"
     );
 
-    // Initialize response cache
-    let image_cache: Option<Arc<dyn std::any::Any + Send + Sync>> =
-        if config.performance.cache_max_entries > 0 {
-            let cache: ImageCache = moka::sync::Cache::new(config.performance.cache_max_entries);
-            info!(
-                max_entries = config.performance.cache_max_entries,
-                "Image response cache enabled"
-            );
-            Some(Arc::new(cache))
-        } else {
-            None
-        };
+    let image_cache: Option<Arc<ImageCache>> = if config.performance.cache_max_entries > 0 {
+        let cache: ImageCache = moka::sync::Cache::new(config.performance.cache_max_entries);
+        info!(
+            max_entries = config.performance.cache_max_entries,
+            "Image response cache enabled"
+        );
+        Some(Arc::new(cache))
+    } else {
+        None
+    };
 
     let state = AppState {
         config: Arc::new(config.clone()),
         storage: Arc::new(storage),
-        auth: auth_store
-            .clone()
-            .map(|s| s as Arc<dyn std::any::Any + Send + Sync>),
-        search: Some(search_index as Arc<dyn std::any::Any + Send + Sync>),
-        discovery: Some(activity_store as Arc<dyn std::any::Any + Send + Sync>),
-        cache: image_cache,
     };
 
-    // Build application with middleware
+    // Build application — each crate's router is `Router<AppState>`. Optional
+    // services are wired through typed `Extension<Arc<T>>` layers.
     let mut app = Router::new()
         .merge(iiif_image::router())
         .merge(iiif_presentation::router())
         .merge(iiif_search::router())
         .merge(iiif_state::router())
-        .merge(iiif_discovery::router());
+        .merge(iiif_discovery::router())
+        .layer(Extension(Arc::clone(&search_index)))
+        .layer(Extension(Arc::clone(&activity_store)));
+
+    if let Some(cache) = &image_cache {
+        app = app.layer(Extension(Arc::clone(cache)));
+    }
 
     // Add auth routes and middleware if enabled
-    if config.auth.enabled {
-        app = app.merge(iiif_auth::router());
+    if let Some(auth_store) = auth_store.clone() {
+        app = app
+            .merge(iiif_auth::router())
+            .layer(Extension(Arc::clone(&auth_store)));
 
-        // Apply auth middleware — inject config, cookie name, storage, and auth store
+        // Apply directory-protection middleware — only injects what the
+        // middleware itself needs (config, cookie name, storage). The auth
+        // store reaches the middleware via the Extension layer above.
         let auth_config = config.auth.clone();
         let cookie_name = CookieName(config.auth.cookie_name.clone());
-        let auth_store_mw = auth_store.clone();
         let storage_for_mw: Arc<dyn iiif_core::storage::ImageStorage> = Arc::clone(&state.storage);
         app = app.layer(middleware::from_fn(
             move |mut req: axum::extract::Request, next: axum::middleware::Next| {
                 req.extensions_mut().insert(auth_config.clone());
                 req.extensions_mut().insert(cookie_name.clone());
                 req.extensions_mut().insert(Arc::clone(&storage_for_mw));
-                if let Some(ref store) = auth_store_mw {
-                    req.extensions_mut().insert(Arc::clone(store));
-                }
                 check_access(req, next)
             },
         ));

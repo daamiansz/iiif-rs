@@ -53,9 +53,18 @@ Punch list of audit findings against the IIIF specs in `specyfikacja/`. Each ite
 - [x] **Tests for fail-fast security config** — `iiif_core::config::validate_security_config` extracted and unit-tested for `protected_dirs` without `auth.enabled`, half-set TLS pair, and the OK paths.
 - [x] **XSS regression tests for `/auth/token`** — `</script>` breakout via `?origin=` and via `?messageId=`. Strict origin validator + `</` → `<\/` JSON neutralisation.
 
-## v0.3.0 — Full Feature Compliance
+## v0.3.0a — Foundations Refactor (done)
 
-After v0.2.1 the implementation matches the literal spec. v0.3.0 fills in major spec features that v0.2.0 skipped entirely.
+Compile-time type safety across the workspace. Invisible to IIIF clients but unblocks every later feature.
+
+- [x] **`IiifError: IntoResponse`** in `iiif-core` — eliminated 4 wrapper structs (`PresentationError`, `DiscoveryError`, `StateError`, `ApiError`) and 4 ad-hoc `match status_u16` blocks. Handlers now return `Result<Response, IiifError>` directly with a uniform JSON error body.
+- [x] **`iiif_core::services::Service` tagged enum** — replaces scattered `serde_json::Value` blobs for service descriptors. Variants: `ImageService3`, `AuthProbeService2`, `AuthAccessService2`, `AuthAccessTokenService2`, `AuthLogoutService2`, `SearchService2`, `AutoCompleteService2`. Each crate produces typed values via factory functions; `iiif-core` hosts the data types without depending on any other crate.
+- [x] **Async `ImageStorage` trait** — `read_image`, `last_modified`, `exists`, `resolve_path` are now async (via `async-trait`). `containing_directory` stays sync (cheap in-memory lookup). Filesystem impl uses `tokio::fs`. All `tokio::task::spawn_blocking { storage.X(...) }` boilerplate gone from handlers; CPU work (image decode/process) still on the blocking pool.
+- [x] **`AppState` typed (drop `Arc<dyn Any>`)** — minimal `AppState { config, storage }`. Optional services (`AuthStore`, `SearchIndex`, `ActivityStore`, `ImageCache`) wired via `axum::Extension<Arc<T>>`. Zero runtime downcasts. `iiif-server/main.rs` gates router merges + extension layers behind config (`if let Some(auth_store) = ... { app.merge(auth::router()).layer(Extension(auth_store)) }`).
+
+## v0.3.0b — Spec Features
+
+After v0.2.1 the implementation matches the literal spec. v0.3.0b fills in major spec features that v0.2.0 skipped entirely.
 
 ### Search — hit augmentation
 - [ ] Sibling `annotations: [AnnotationPage]` with motivations `contextualizing` and `highlighting`.
@@ -79,14 +88,6 @@ After v0.2.1 the implementation matches the literal spec. v0.3.0 fills in major 
 - [ ] **Sidecar metadata** — read `images/<name>.json` or `images/<name>.toml` and merge into Manifest (`label`, `metadata[]`, `summary`, `rights`, `provider`). Today every Manifest has only the filename stem as label.
 - [ ] **Content negotiation** — honor `Accept: application/json` (no profile parameter), return 406 for unacceptable Accept (`crates/iiif-presentation/src/handlers.rs:28-60`).
 
-### AppState refactor
-- [ ] **Drop the `Arc<dyn Any + Send + Sync>` pattern** in `crates/iiif-core/src/state.rs:13-19`. Today every handler downcast at runtime (`SearchIndex`, `ActivityStore`, `AuthStore`, `ImageCache`). Replace with typed sub-state (`FromRef`) or per-module `Extension<T>`. Cross-crate change — bundled here, not done piecemeal.
-
-### Storage trait async
-- [ ] Make `ImageStorage` trait async (`crates/iiif-core/src/storage/mod.rs:13-29`). Today it is sync but called from async handlers without `spawn_blocking`.
-
-### Error model
-- [ ] `IiifError` should `impl IntoResponse` once, instead of every handler doing brittle `match status_u16 { 400 => StatusCode::BAD_REQUEST, ... }` (`crates/iiif-core/src/error.rs:38`, plus call-sites in state/handlers.rs and discovery/handlers.rs).
 
 ## v0.4.0 — Storage Backends
 

@@ -1,10 +1,11 @@
-use axum::extract::{Path, State};
+use std::sync::Arc;
+
+use axum::extract::{Extension, Path, State};
 use axum::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
-use serde_json::json;
 use tracing::info;
 
 use iiif_core::error::IiifError;
@@ -21,10 +22,12 @@ pub fn router() -> Router<AppState> {
 }
 
 /// GET `/activity/all-changes` — return the OrderedCollection.
-async fn collection_handler(State(state): State<AppState>) -> Result<Response, DiscoveryError> {
+async fn collection_handler(
+    State(state): State<AppState>,
+    Extension(store): Extension<Arc<ActivityStore>>,
+) -> Result<Response, IiifError> {
     let base = &state.config.server.base_url;
 
-    let store = get_store(&state)?;
     let total = store.total();
     let page_count = store.page_count();
 
@@ -44,15 +47,15 @@ async fn collection_handler(State(state): State<AppState>) -> Result<Response, D
 /// GET `/activity/page/{page}` — return an OrderedCollectionPage.
 async fn page_handler(
     State(state): State<AppState>,
+    Extension(store): Extension<Arc<ActivityStore>>,
     Path(page): Path<usize>,
-) -> Result<Response, DiscoveryError> {
+) -> Result<Response, IiifError> {
     let base = &state.config.server.base_url;
 
-    let store = get_store(&state)?;
     let page_count = store.page_count();
 
     if page >= page_count {
-        return Err(IiifError::NotFound(format!("Page {page} not found")).into());
+        return Err(IiifError::NotFound(format!("Page {page} not found")));
     }
 
     let items = store.get_page(page);
@@ -102,14 +105,6 @@ async fn page_handler(
     Ok((StatusCode::OK, discovery_headers(), json).into_response())
 }
 
-fn get_store(state: &AppState) -> Result<&ActivityStore, IiifError> {
-    state
-        .discovery
-        .as_ref()
-        .and_then(|a| a.downcast_ref::<ActivityStore>())
-        .ok_or_else(|| IiifError::Internal("Activity store not initialized".to_string()))
-}
-
 fn discovery_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -122,21 +117,3 @@ fn discovery_headers() -> HeaderMap {
     headers
 }
 
-struct DiscoveryError(IiifError);
-
-impl From<IiifError> for DiscoveryError {
-    fn from(err: IiifError) -> Self {
-        Self(err)
-    }
-}
-
-impl IntoResponse for DiscoveryError {
-    fn into_response(self) -> Response {
-        let status = match self.0.http_status_code() {
-            404 => StatusCode::NOT_FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        let body = json!({"error": self.0.to_string(), "status": status.as_u16()});
-        (status, body.to_string()).into_response()
-    }
-}

@@ -5,7 +5,6 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde_json::json;
 use tracing::info;
 
 use iiif_core::error::IiifError;
@@ -26,7 +25,7 @@ pub fn router() -> Router<AppState> {
 }
 
 /// POST `/content-state/encode` — encode a JSON content state to base64url.
-async fn encode_handler(Json(body): Json<serde_json::Value>) -> Result<Response, StateError> {
+async fn encode_handler(Json(body): Json<serde_json::Value>) -> Result<Response, IiifError> {
     let json_str = serde_json::to_string(&body)
         .map_err(|e| IiifError::BadRequest(format!("Invalid JSON: {e}")))?;
 
@@ -45,7 +44,7 @@ struct DecodeQuery {
 }
 
 /// GET `/content-state/decode?content=...` — decode base64url to JSON.
-async fn decode_handler(Query(params): Query<DecodeQuery>) -> Result<Response, StateError> {
+async fn decode_handler(Query(params): Query<DecodeQuery>) -> Result<Response, IiifError> {
     let json_str = codec::decode_content_state(&params.content)?;
     let value = codec::validate_content_state(&json_str)?;
 
@@ -59,7 +58,7 @@ async fn decode_handler(Query(params): Query<DecodeQuery>) -> Result<Response, S
 async fn get_state_handler(
     State(_state): State<AppState>,
     Query(params): Query<DecodeQuery>,
-) -> Result<Response, StateError> {
+) -> Result<Response, IiifError> {
     let json_str = codec::decode_content_state(&params.content)?;
     let value = codec::validate_content_state(&json_str)?;
     let encoded = codec::encode_content_state(&json_str);
@@ -75,7 +74,7 @@ async fn get_state_handler(
 async fn post_state_handler(
     State(_state): State<AppState>,
     Json(body): Json<serde_json::Value>,
-) -> Result<Response, StateError> {
+) -> Result<Response, IiifError> {
     let json_str = serde_json::to_string(&body)
         .map_err(|e| IiifError::BadRequest(format!("Invalid JSON: {e}")))?;
 
@@ -96,21 +95,3 @@ fn state_headers() -> HeaderMap {
     headers
 }
 
-struct StateError(IiifError);
-
-impl From<IiifError> for StateError {
-    fn from(err: IiifError) -> Self {
-        Self(err)
-    }
-}
-
-impl IntoResponse for StateError {
-    fn into_response(self) -> Response {
-        let status = match self.0.http_status_code() {
-            400 => StatusCode::BAD_REQUEST,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        let body = json!({"error": self.0.to_string(), "status": status.as_u16()});
-        (status, Json(body)).into_response()
-    }
-}

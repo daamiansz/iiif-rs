@@ -1,4 +1,6 @@
-use axum::extract::{Path, Query, State};
+use std::sync::Arc;
+
+use axum::extract::{Extension, Path, Query, State};
 use axum::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE, SET_COOKIE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
@@ -88,6 +90,7 @@ button:hover {{ background: #1d4ed8; }}
 /// POST /auth/login — validate credentials, set cookie, close window.
 async fn login_submit(
     State(state): State<AppState>,
+    Extension(auth_store): Extension<Arc<AuthStore>>,
     axum::extract::Form(form): axum::extract::Form<LoginForm>,
 ) -> Response {
     let auth_config = &state.config.auth;
@@ -112,11 +115,6 @@ async fn login_submit(
         .into_response();
     }
 
-    let auth_store = state
-        .auth
-        .as_ref()
-        .and_then(|a| a.downcast_ref::<AuthStore>())
-        .expect("auth store");
     let session_id = auth_store.create_session(&form.username);
     let cookie_name = &auth_config.cookie_name;
 
@@ -160,6 +158,7 @@ struct TokenQuery {
 /// with either an `AuthAccessToken2` (success) or `AuthAccessTokenError2` (failure).
 async fn token_handler(
     State(state): State<AppState>,
+    Extension(auth_store): Extension<Arc<AuthStore>>,
     Query(params): Query<TokenQuery>,
     req_headers: HeaderMap,
 ) -> Response {
@@ -181,17 +180,6 @@ async fn token_handler(
                 ),
             );
         }
-    };
-
-    let Some(auth_store) = state
-        .auth
-        .as_ref()
-        .and_then(|a| a.downcast_ref::<AuthStore>())
-    else {
-        return token_post_message(
-            &origin,
-            token_error_body("unavailable", &message_id, "Auth is not enabled on this server."),
-        );
     };
 
     let cookie_name = &state.config.auth.cookie_name;
@@ -305,36 +293,27 @@ fn is_valid_origin(s: &str) -> bool {
 /// HTTP response is ALWAYS 200 per IIIF Auth Flow 2.0; the would-be access status
 /// is carried in the body's `status` field.
 async fn probe_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
+    Extension(auth_store): Extension<Arc<AuthStore>>,
     Path(_resource_id): Path<String>,
     req_headers: HeaderMap,
 ) -> Response {
-    let auth_store = state
-        .auth
-        .as_ref()
-        .and_then(|a| a.downcast_ref::<AuthStore>());
-
     let token = req_headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
 
-    let (status, heading, note) = match (auth_store, token) {
-        (Some(store), Some(t)) if store.validate_token(t) => (200u16, None, None),
-        (Some(_), Some(_)) => (
+    let (status, heading, note) = match token {
+        Some(t) if auth_store.validate_token(t) => (200u16, None, None),
+        Some(_) => (
             401,
             Some(json!({"en": ["Authentication expired"]})),
             Some(json!({"en": ["Your token is invalid or expired. Please log in again."]})),
         ),
-        (Some(_), None) => (
+        None => (
             401,
             Some(json!({"en": ["Authentication required"]})),
             Some(json!({"en": ["Please log in to access this resource."]})),
-        ),
-        (None, _) => (
-            503,
-            Some(json!({"en": ["Authentication unavailable"]})),
-            Some(json!({"en": ["The authentication service is not configured on this server."]})),
         ),
     };
 
@@ -363,17 +342,15 @@ async fn probe_handler(
 // ---------------------------------------------------------------------------
 
 /// GET /auth/logout — clear session, cookie, and any tokens issued for it.
-async fn logout_handler(State(state): State<AppState>, req_headers: HeaderMap) -> Response {
+async fn logout_handler(
+    State(state): State<AppState>,
+    Extension(auth_store): Extension<Arc<AuthStore>>,
+    req_headers: HeaderMap,
+) -> Response {
     let cookie_name = &state.config.auth.cookie_name;
 
     if let Some(sid) = extract_cookie(&req_headers, cookie_name) {
-        if let Some(auth_store) = state
-            .auth
-            .as_ref()
-            .and_then(|a| a.downcast_ref::<AuthStore>())
-        {
-            auth_store.remove_session(&sid);
-        }
+        auth_store.remove_session(&sid);
     }
 
     let mut headers = HeaderMap::new();

@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use iiif_core::config::ImageConfig;
+use iiif_core::services::Service;
 
 const IMAGE_CONTEXT: &str = "http://iiif.io/api/image/3/context.json";
 const AUTH_CONTEXT: &str = "http://iiif.io/api/auth/2/context.json";
@@ -45,7 +46,7 @@ pub struct ImageInfo {
     #[serde(rename = "seeAlso", skip_serializing_if = "Option::is_none")]
     pub see_also: Option<Vec<serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub service: Option<Vec<serde_json::Value>>,
+    pub service: Option<Vec<Service>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<Vec<serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,7 +84,7 @@ impl ImageInfo {
         img_width: u32,
         img_height: u32,
         config: &ImageConfig,
-        auth_service: Option<serde_json::Value>,
+        auth_service: Option<Service>,
     ) -> Self {
         let id = format!("{base_url}/{identifier}");
 
@@ -252,6 +253,8 @@ mod tests {
 
     #[test]
     fn info_json_with_auth_prepends_auth_context() {
+        use iiif_core::services::AuthProbeService2;
+
         let config = ImageConfig {
             max_width: None,
             max_height: None,
@@ -260,20 +263,27 @@ mod tests {
             tile_width: 512,
             tile_scale_factors: vec![1, 2, 4, 8, 16],
         };
-        let probe = serde_json::json!({"id": "x", "type": "AuthProbeService2"});
+        let probe = Service::AuthProbeService2(AuthProbeService2 {
+            id: "http://x/probe".to_string(),
+            service: vec![],
+            error_heading: None,
+            error_note: None,
+        });
         let info = ImageInfo::build(
             "http://localhost:8080",
             "test",
             100,
             100,
             &config,
-            Some(probe.clone()),
+            Some(probe),
         );
 
         let ctx = info.context.as_array().unwrap();
         assert_eq!(ctx.len(), 2);
         assert_eq!(ctx[0], "http://iiif.io/api/auth/2/context.json");
         assert_eq!(ctx[1], "http://iiif.io/api/image/3/context.json");
-        assert_eq!(info.service.unwrap(), vec![probe]);
+        // Serialise the info to verify the embedded service has the right type tag.
+        let json = serde_json::to_value(&info).unwrap();
+        assert_eq!(json["service"][0]["type"], "AuthProbeService2");
     }
 }

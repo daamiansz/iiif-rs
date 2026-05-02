@@ -3,7 +3,7 @@ use std::time::SystemTime;
 
 use sha2::{Digest, Sha256};
 
-use axum::extract::{Path, State};
+use axum::extract::{Extension, Path, State};
 use axum::http::header::{
     self, ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE,
     IF_NONE_MATCH, LAST_MODIFIED, LINK, LOCATION,
@@ -12,7 +12,6 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
-use serde_json::json;
 use tracing::{error, info, warn};
 
 use iiif_core::config::ImageConfig;
@@ -50,7 +49,7 @@ pub fn router() -> Router<AppState> {
 async fn base_redirect_handler(
     State(state): State<AppState>,
     Path(raw_identifier): Path<String>,
-) -> Result<Response, ApiError> {
+) -> Result<Response, IiifError> {
     let _identifier = ImageIdentifier::from_encoded(&raw_identifier)?;
     let location = format!(
         "{}/{}/info.json",
@@ -73,20 +72,12 @@ async fn info_handler(
     State(state): State<AppState>,
     Path(raw_identifier): Path<String>,
     req_headers: HeaderMap,
-) -> Result<Response, ApiError> {
+) -> Result<Response, IiifError> {
     let identifier = ImageIdentifier::from_encoded(&raw_identifier)?;
-    let storage = Arc::clone(&state.storage);
     let id_str = identifier.as_str().to_string();
-    let id_for_mtime = id_str.clone();
 
-    // Get last-modified time (cheap, no image decode)
-    let mtime = {
-        let storage = Arc::clone(&state.storage);
-        tokio::task::spawn_blocking(move || storage.last_modified(&id_for_mtime))
-            .await
-            .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))?
-            .ok()
-    };
+    // Get last-modified time (async)
+    let mtime = state.storage.last_modified(&id_str).await.ok();
 
     // Compute ETag from identifier + modification time
     let etag = compute_etag(identifier.as_str(), mtime, "info.json");
@@ -96,18 +87,14 @@ async fn info_handler(
         return Ok(not_modified_response(&etag, mtime));
     }
 
-    let (source, width, height) = tokio::task::spawn_blocking(move || {
-        let bytes = storage.read_image(&id_str)?;
-        let dims = pipeline::get_dimensions(&bytes)?;
-        Ok::<_, IiifError>((bytes, dims.0, dims.1))
-    })
-    .await
-    .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))?
-    .map_err(|e| {
+    let bytes = state.storage.read_image(&id_str).await.map_err(|e| {
         warn!(identifier = %identifier, error = %e, "Image not found");
         e
     })?;
-    let _ = source; // dimensions extracted, bytes no longer needed here
+    // Header decode is cheap but still CPU; keep on the blocking pool.
+    let (width, height) = tokio::task::spawn_blocking(move || pipeline::get_dimensions(&bytes))
+        .await
+        .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))??;
 
     // If the resource resides in a protected directory, embed the auth probe
     // service so clients can discover the auth flow.
@@ -172,6 +159,7 @@ async fn info_handler(
 /// GET `/{identifier}/{region}/{size}/{rotation}/{quality}.{format}`
 async fn image_handler(
     State(state): State<AppState>,
+    image_cache: Option<Extension<Arc<ImageCache>>>,
     Path((raw_identifier, raw_region, raw_size, raw_rotation, raw_quality_format)): Path<(
         String,
         String,
@@ -180,25 +168,16 @@ async fn image_handler(
         String,
     )>,
     req_headers: HeaderMap,
-) -> Result<Response, ApiError> {
+) -> Result<Response, IiifError> {
     let identifier = ImageIdentifier::from_encoded(&raw_identifier)?;
     let region: Region = raw_region.parse()?;
     let size: Size = raw_size.parse()?;
     let rotation: Rotation = raw_rotation.parse()?;
     let (quality, format) = parse_quality_format(&raw_quality_format)?;
 
-    let storage = Arc::clone(&state.storage);
     let id_str = identifier.as_str().to_string();
-    let id_for_mtime = id_str.clone();
 
-    // Get modification time
-    let mtime = {
-        let storage = Arc::clone(&state.storage);
-        tokio::task::spawn_blocking(move || storage.last_modified(&id_for_mtime))
-            .await
-            .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))?
-            .ok()
-    };
+    let mtime = state.storage.last_modified(&id_str).await.ok();
 
     // ETag includes request parameters — different params = different output
     let params_key = format!("{raw_region}/{raw_size}/{raw_rotation}/{raw_quality_format}");
@@ -211,11 +190,8 @@ async fn image_handler(
     // Build cache key from request params + file mtime
     let cache_key = etag.clone();
 
-    // Try cache first
-    let image_cache = state
-        .cache
-        .as_ref()
-        .and_then(|c| c.downcast_ref::<ImageCache>());
+    // Memory cache (Extension<Arc<ImageCache>>) is optional — None disables caching.
+    let image_cache = image_cache.as_ref().map(|Extension(c)| c.as_ref());
 
     // 1. Memory cache
     if let Some(cached) = image_cache.and_then(|c| c.get(&cache_key)) {
@@ -265,17 +241,19 @@ async fn image_handler(
         }
     }
 
-    let (source, src_w, src_h) = tokio::task::spawn_blocking(move || {
-        let bytes = storage.read_image(&id_str)?;
-        let dims = pipeline::get_dimensions(&bytes)?;
-        Ok::<_, IiifError>((bytes, dims.0, dims.1))
-    })
-    .await
-    .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))?
-    .map_err(|e| {
+    let bytes = state.storage.read_image(&id_str).await.map_err(|e| {
         warn!(identifier = %identifier, error = %e, "Image not found");
         e
     })?;
+    // Move-and-return — header decode is cheap but kept on the blocking pool
+    // for consistency with the heavy pipeline below; we hand the bytes back so
+    // we never clone a 5-50 MB Vec.
+    let (source, src_w, src_h) = tokio::task::spawn_blocking(move || {
+        let (w, h) = pipeline::get_dimensions(&bytes)?;
+        Ok::<_, IiifError>((bytes, w, h))
+    })
+    .await
+    .map_err(|e| IiifError::Internal(format!("Task join error: {e}")))??;
 
     let config = state.config.image.clone();
     let region_c = region.clone();
@@ -556,45 +534,3 @@ fn build_canonical_uri(p: &CanonicalParams<'_>) -> String {
     format!("{base_url}/{identifier}/{region_str}/{size_str}/{rotation}/{quality}.{format}")
 }
 
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
-
-struct ApiError(IiifError);
-
-impl From<IiifError> for ApiError {
-    fn from(err: IiifError) -> Self {
-        Self(err)
-    }
-}
-
-impl IntoResponse for ApiError {
-    fn into_response(self) -> Response {
-        let status = match self.0.http_status_code() {
-            400 => StatusCode::BAD_REQUEST,
-            401 => StatusCode::UNAUTHORIZED,
-            403 => StatusCode::FORBIDDEN,
-            404 => StatusCode::NOT_FOUND,
-            501 => StatusCode::NOT_IMPLEMENTED,
-            503 => StatusCode::SERVICE_UNAVAILABLE,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        let body = json!({
-            "error": self.0.to_string(),
-            "status": status.as_u16(),
-        });
-
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            "application/json".parse().expect("valid header value"),
-        );
-        headers.insert(
-            ACCESS_CONTROL_ALLOW_ORIGIN,
-            "*".parse().expect("valid header value"),
-        );
-
-        (status, headers, body.to_string()).into_response()
-    }
-}

@@ -83,34 +83,17 @@ pub struct TermEntry {
 }
 
 /// Search service descriptor for embedding in Manifests.
-#[derive(Debug, Clone, Serialize)]
-pub struct SearchServiceDescriptor {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub service_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub service: Option<Vec<AutocompleteServiceDescriptor>>,
-}
-
-/// Autocomplete sub-service descriptor.
-#[derive(Debug, Clone, Serialize)]
-pub struct AutocompleteServiceDescriptor {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub service_type: String,
-}
-
-impl SearchServiceDescriptor {
-    pub fn new(base_url: &str) -> Self {
-        Self {
-            id: format!("{base_url}/search"),
-            service_type: "SearchService2".to_string(),
-            service: Some(vec![AutocompleteServiceDescriptor {
-                id: format!("{base_url}/autocomplete"),
-                service_type: "AutoCompleteService2".to_string(),
-            }]),
-        }
-    }
+///
+/// Returns a typed `Service::SearchService2` with `AutoCompleteService2` nested
+/// in `service[]` per IIIF Content Search 2.0.
+pub fn build_search_service_descriptor(base_url: &str) -> iiif_core::services::Service {
+    use iiif_core::services::{AutoCompleteService2, SearchService2, Service};
+    Service::SearchService2(SearchService2 {
+        id: format!("{base_url}/search"),
+        service: vec![Service::AutoCompleteService2(AutoCompleteService2 {
+            id: format!("{base_url}/autocomplete"),
+        })],
+    })
 }
 
 const SEARCH_CONTEXT: &str = "http://iiif.io/api/search/2/context.json";
@@ -288,9 +271,11 @@ mod tests {
 
     #[test]
     fn service_descriptor() {
-        let desc = SearchServiceDescriptor::new("http://localhost:8080");
-        let json = serde_json::to_string(&desc).unwrap();
-        assert!(json.contains("SearchService2"));
-        assert!(json.contains("AutoCompleteService2"));
+        let desc = build_search_service_descriptor("http://localhost:8080");
+        let v = serde_json::to_value(&desc).unwrap();
+        assert_eq!(v["type"], "SearchService2");
+        assert_eq!(v["id"], "http://localhost:8080/search");
+        assert_eq!(v["service"][0]["type"], "AutoCompleteService2");
+        assert_eq!(v["service"][0]["id"], "http://localhost:8080/autocomplete");
     }
 }

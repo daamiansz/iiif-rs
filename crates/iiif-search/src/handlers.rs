@@ -1,4 +1,6 @@
-use axum::extract::{Query, State};
+use std::sync::Arc;
+
+use axum::extract::{Extension, Query, State};
 use axum::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -44,6 +46,7 @@ struct AutocompleteQuery {
 /// GET `/search?q=...&motivation=...&page=N`
 async fn search_handler(
     State(state): State<AppState>,
+    Extension(index): Extension<Arc<SearchIndex>>,
     Query(params): Query<SearchQuery>,
 ) -> Response {
     let base = &state.config.server.base_url;
@@ -61,17 +64,8 @@ async fn search_handler(
         ignored.push("user".to_string());
     }
 
-    let search_index = state
-        .search
-        .as_ref()
-        .and_then(|a| a.downcast_ref::<SearchIndex>());
-
-    let (matches, total) = match search_index {
-        Some(index) => {
-            index.search_paginated(&query, motivation, page * PAGE_SIZE, PAGE_SIZE)
-        }
-        None => (Vec::new(), 0),
-    };
+    let (matches, total) =
+        index.search_paginated(&query, motivation, page * PAGE_SIZE, PAGE_SIZE);
 
     let items: Vec<SearchAnnotation> = matches
         .into_iter()
@@ -115,6 +109,7 @@ async fn search_handler(
 /// GET `/autocomplete?q=...&motivation=...&min=N`
 async fn autocomplete_handler(
     State(state): State<AppState>,
+    Extension(index): Extension<Arc<SearchIndex>>,
     Query(params): Query<AutocompleteQuery>,
 ) -> Response {
     let base = &state.config.server.base_url;
@@ -125,23 +120,15 @@ async fn autocomplete_handler(
     // current term-frequency-only autocomplete. Don't lie about it as ignored.
     let _ = &params.motivation;
 
-    let search_index = state
-        .search
-        .as_ref()
-        .and_then(|a| a.downcast_ref::<SearchIndex>());
-
-    let items: Vec<TermEntry> = match search_index {
-        Some(index) => index
-            .autocomplete(&prefix, AUTOCOMPLETE_LIMIT)
-            .into_iter()
-            .filter(|(_, count)| *count >= min_count)
-            .map(|(term, count)| TermEntry {
-                value: term,
-                total: Some(count),
-            })
-            .collect(),
-        None => Vec::new(),
-    };
+    let items: Vec<TermEntry> = index
+        .autocomplete(&prefix, AUTOCOMPLETE_LIMIT)
+        .into_iter()
+        .filter(|(_, count)| *count >= min_count)
+        .map(|(term, count)| TermEntry {
+            value: term,
+            total: Some(count),
+        })
+        .collect();
 
     let request_url = format!("{base}/autocomplete?q={}", url_encode(&prefix));
     let response = AutocompleteResponse::new(&request_url, items, Vec::new());

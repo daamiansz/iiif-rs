@@ -11,6 +11,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
+use async_trait::async_trait;
 use iiif_core::config::AppConfig;
 use iiif_core::error::IiifError;
 use iiif_core::state::AppState;
@@ -18,17 +19,18 @@ use iiif_core::storage::ImageStorage;
 
 struct StubStorage;
 
+#[async_trait]
 impl ImageStorage for StubStorage {
-    fn exists(&self, _id: &str) -> Result<bool, IiifError> {
+    async fn exists(&self, _id: &str) -> Result<bool, IiifError> {
         Ok(false)
     }
-    fn read_image(&self, _id: &str) -> Result<Vec<u8>, IiifError> {
+    async fn read_image(&self, _id: &str) -> Result<Vec<u8>, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
-    fn resolve_path(&self, _id: &str) -> Result<std::path::PathBuf, IiifError> {
+    async fn resolve_path(&self, _id: &str) -> Result<std::path::PathBuf, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
-    fn last_modified(&self, _id: &str) -> Result<std::time::SystemTime, IiifError> {
+    async fn last_modified(&self, _id: &str) -> Result<std::time::SystemTime, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
     fn containing_directory(&self, _id: &str) -> Option<String> {
@@ -40,10 +42,6 @@ fn build_state() -> AppState {
     AppState {
         config: Arc::new(AppConfig::default()),
         storage: Arc::new(StubStorage),
-        auth: None,
-        search: None,
-        discovery: None,
-        cache: None,
     }
 }
 

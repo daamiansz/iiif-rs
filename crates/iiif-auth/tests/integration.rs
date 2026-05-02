@@ -8,8 +8,10 @@ use std::sync::Arc;
 
 use axum::body::{to_bytes, Body};
 use axum::http::{Request, StatusCode};
+use axum::{Extension, Router};
 use tower::ServiceExt;
 
+use async_trait::async_trait;
 use iiif_auth::AuthStore;
 use iiif_core::config::{AppConfig, AuthConfig, UserCredential};
 use iiif_core::error::IiifError;
@@ -18,17 +20,18 @@ use iiif_core::storage::ImageStorage;
 
 struct StubStorage;
 
+#[async_trait]
 impl ImageStorage for StubStorage {
-    fn exists(&self, _id: &str) -> Result<bool, IiifError> {
+    async fn exists(&self, _id: &str) -> Result<bool, IiifError> {
         Ok(false)
     }
-    fn read_image(&self, _id: &str) -> Result<Vec<u8>, IiifError> {
+    async fn read_image(&self, _id: &str) -> Result<Vec<u8>, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
-    fn resolve_path(&self, _id: &str) -> Result<std::path::PathBuf, IiifError> {
+    async fn resolve_path(&self, _id: &str) -> Result<std::path::PathBuf, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
-    fn last_modified(&self, _id: &str) -> Result<std::time::SystemTime, IiifError> {
+    async fn last_modified(&self, _id: &str) -> Result<std::time::SystemTime, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
     fn containing_directory(&self, _id: &str) -> Option<String> {
@@ -36,7 +39,7 @@ impl ImageStorage for StubStorage {
     }
 }
 
-fn build_state() -> (AppState, Arc<AuthStore>) {
+fn build_app() -> (Router, Arc<AuthStore>) {
     let config = AppConfig {
         auth: AuthConfig {
             enabled: true,
@@ -56,12 +59,11 @@ fn build_state() -> (AppState, Arc<AuthStore>) {
     let state = AppState {
         config: Arc::new(config),
         storage: Arc::new(StubStorage),
-        auth: Some(Arc::clone(&store) as Arc<dyn std::any::Any + Send + Sync>),
-        search: None,
-        discovery: None,
-        cache: None,
     };
-    (state, store)
+    let app = iiif_auth::router()
+        .layer(Extension(Arc::clone(&store)))
+        .with_state(state);
+    (app, store)
 }
 
 async fn body_string(resp: axum::response::Response) -> String {
@@ -71,8 +73,7 @@ async fn body_string(resp: axum::response::Response) -> String {
 
 #[tokio::test]
 async fn probe_without_token_returns_http_200_and_body_status_401() {
-    let (state, _) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, _) = build_app();
 
     let resp = app
         .oneshot(
@@ -95,8 +96,7 @@ async fn probe_without_token_returns_http_200_and_body_status_401() {
 
 #[tokio::test]
 async fn probe_with_valid_bearer_returns_status_200_in_body() {
-    let (state, store) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, store) = build_app();
 
     let session_id = store.create_session("alice");
     let (token, _ttl) = store.issue_token(&session_id).unwrap();
@@ -120,8 +120,7 @@ async fn probe_with_valid_bearer_returns_status_200_in_body() {
 
 #[tokio::test]
 async fn token_without_origin_emits_invalid_origin_error_to_wildcard_target() {
-    let (state, _) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, _) = build_app();
 
     let resp = app
         .oneshot(
@@ -146,8 +145,7 @@ async fn token_without_origin_emits_invalid_origin_error_to_wildcard_target() {
 
 #[tokio::test]
 async fn token_with_origin_but_no_session_emits_missing_aspect_to_origin() {
-    let (state, _) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, _) = build_app();
 
     let resp = app
         .oneshot(
@@ -170,8 +168,7 @@ async fn token_with_origin_but_no_session_emits_missing_aspect_to_origin() {
 
 #[tokio::test]
 async fn token_with_session_emits_access_token_to_origin() {
-    let (state, store) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, store) = build_app();
 
     let session_id = store.create_session("alice");
 
@@ -199,8 +196,7 @@ async fn token_with_session_emits_access_token_to_origin() {
 
 #[tokio::test]
 async fn login_sets_cookie_with_security_attributes() {
-    let (state, _) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, _) = build_app();
 
     let form = "username=alice&password=wonderland&origin=https%3A%2F%2Fviewer.example.org";
     let resp = app
@@ -231,8 +227,7 @@ async fn login_sets_cookie_with_security_attributes() {
 
 #[tokio::test]
 async fn token_handler_does_not_break_out_of_script_tag_via_origin() {
-    let (state, _) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, _) = build_app();
 
     // Attacker-controlled origin that contains `</script>` breakout.
     let evil_uri = "/auth/token?messageId=m&origin=https://evil.com%3C/script%3E%3Cscript%3Ealert(1)%3C/script%3E";
@@ -256,8 +251,7 @@ async fn token_handler_does_not_break_out_of_script_tag_via_origin() {
 
 #[tokio::test]
 async fn token_handler_does_not_break_out_of_script_tag_via_message_id() {
-    let (state, store) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, store) = build_app();
 
     let session_id = store.create_session("alice");
 
@@ -289,8 +283,7 @@ async fn token_handler_does_not_break_out_of_script_tag_via_message_id() {
 
 #[tokio::test]
 async fn logout_clears_cookie() {
-    let (state, store) = build_state();
-    let app = iiif_auth::router().with_state(state);
+    let (app, store) = build_app();
 
     let session_id = store.create_session("alice");
 

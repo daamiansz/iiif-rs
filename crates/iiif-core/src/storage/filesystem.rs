@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use async_trait::async_trait;
 use tracing::debug;
 
 use crate::error::IiifError;
@@ -109,8 +110,9 @@ impl FilesystemStorage {
     }
 }
 
+#[async_trait]
 impl ImageStorage for FilesystemStorage {
-    fn exists(&self, identifier: &str) -> Result<bool, IiifError> {
+    async fn exists(&self, identifier: &str) -> Result<bool, IiifError> {
         match self.find_image_file(identifier) {
             Ok(_) => Ok(true),
             Err(IiifError::NotFound(_)) => Ok(false),
@@ -118,20 +120,21 @@ impl ImageStorage for FilesystemStorage {
         }
     }
 
-    fn read_image(&self, identifier: &str) -> Result<Vec<u8>, IiifError> {
+    async fn read_image(&self, identifier: &str) -> Result<Vec<u8>, IiifError> {
         let path = self.find_image_file(identifier)?;
         debug!(path = %path.display(), "Reading image from filesystem");
-        fs::read(&path)
+        tokio::fs::read(&path)
+            .await
             .map_err(|e| IiifError::Storage(format!("Failed to read {}: {e}", path.display())))
     }
 
-    fn resolve_path(&self, identifier: &str) -> Result<PathBuf, IiifError> {
+    async fn resolve_path(&self, identifier: &str) -> Result<PathBuf, IiifError> {
         self.find_image_file(identifier)
     }
 
-    fn last_modified(&self, identifier: &str) -> Result<std::time::SystemTime, IiifError> {
+    async fn last_modified(&self, identifier: &str) -> Result<std::time::SystemTime, IiifError> {
         let path = self.find_image_file(identifier)?;
-        let metadata = fs::metadata(&path).map_err(|e| {
+        let metadata = tokio::fs::metadata(&path).await.map_err(|e| {
             IiifError::Storage(format!(
                 "Failed to read metadata for {}: {e}",
                 path.display()
@@ -152,8 +155,8 @@ mod tests {
     use super::*;
     use std::io::Write;
 
-    #[test]
-    fn finds_image_in_root() {
+    #[tokio::test]
+    async fn finds_image_in_root() {
         let dir = std::env::temp_dir().join("iiif_test_fs_root");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
@@ -162,14 +165,14 @@ mod tests {
         f.write_all(b"fake-jpeg").unwrap();
 
         let storage = FilesystemStorage::new(&dir).unwrap();
-        assert!(storage.exists("sample").unwrap());
+        assert!(storage.exists("sample").await.unwrap());
         assert_eq!(storage.containing_directory("sample"), None);
 
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn finds_image_in_subdirectory() {
+    #[tokio::test]
+    async fn finds_image_in_subdirectory() {
         let dir = std::env::temp_dir().join("iiif_test_fs_subdir");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("restricted")).unwrap();
@@ -178,45 +181,44 @@ mod tests {
         f.write_all(b"secret-jpeg").unwrap();
 
         let storage = FilesystemStorage::new(&dir).unwrap();
-        assert!(storage.exists("secret").unwrap());
+        assert!(storage.exists("secret").await.unwrap());
         assert_eq!(
             storage.containing_directory("secret"),
             Some("restricted".to_string())
         );
 
-        let bytes = storage.read_image("secret").unwrap();
+        let bytes = storage.read_image("secret").await.unwrap();
         assert_eq!(bytes, b"secret-jpeg");
 
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn root_takes_precedence_over_subdir() {
+    #[tokio::test]
+    async fn root_takes_precedence_over_subdir() {
         let dir = std::env::temp_dir().join("iiif_test_fs_priority");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("restricted")).unwrap();
 
-        // Same name in root and subdirectory — root wins
         let mut f = fs::File::create(dir.join("photo.jpg")).unwrap();
         f.write_all(b"root-version").unwrap();
         let mut f = fs::File::create(dir.join("restricted/photo.jpg")).unwrap();
         f.write_all(b"restricted-version").unwrap();
 
         let storage = FilesystemStorage::new(&dir).unwrap();
-        assert_eq!(storage.containing_directory("photo"), None); // root wins
-        assert_eq!(storage.read_image("photo").unwrap(), b"root-version");
+        assert_eq!(storage.containing_directory("photo"), None);
+        assert_eq!(storage.read_image("photo").await.unwrap(), b"root-version");
 
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn returns_not_found_for_missing() {
+    #[tokio::test]
+    async fn returns_not_found_for_missing() {
         let dir = std::env::temp_dir().join("iiif_test_fs_missing2");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
         let storage = FilesystemStorage::new(&dir).unwrap();
-        assert!(!storage.exists("nonexistent").unwrap());
+        assert!(!storage.exists("nonexistent").await.unwrap());
 
         let _ = fs::remove_dir_all(&dir);
     }

@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+pub use iiif_core::services::Service as ServiceEntry;
+
 /// Language-tagged string map, e.g. `{"en": ["Title"], "pl": ["Tytuł"]}`.
 pub type LanguageMap = BTreeMap<String, Vec<String>>;
 
@@ -222,10 +224,6 @@ pub struct CanvasRef {
 // ---------------------------------------------------------------------------
 
 /// A web resource (image, video, audio, text) associated with a Canvas.
-///
-/// `service` is loosely typed (`Vec<serde_json::Value>`) so callers can mix
-/// `ImageService3`, `AuthProbeService2`, search services, etc. — the proper
-/// `#[serde(tag="type")]` enum lands in v0.3.0.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContentResource {
     pub id: String,
@@ -240,7 +238,7 @@ pub struct ContentResource {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub service: Option<Vec<serde_json::Value>>,
+    pub service: Option<Vec<ServiceEntry>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<LanguageMap>,
 }
