@@ -21,9 +21,10 @@ A complete [IIIF](https://iiif.io/) (International Image Interoperability Framew
 
 - **Fast** — async I/O (tokio), zero-copy image pipeline, Lanczos3 resampling
 - **Safe** — Rust memory safety, no `unsafe`, input validation on all boundaries
-- **Lightweight** — 13 MB release binary, ~50 MB Docker image
+- **Lightweight** — small release binary, ~50 MB Docker image
 - **Configurable** — TOML file, environment variables, or both
 - **Observable** — structured logging (tracing), ETag/Last-Modified caching, health checks
+- **Pluggable storage** — local filesystem, S3 / MinIO / R2, Azure Blob, GCS, HTTP remote — single `object_store` dep, multi-source routing with prefix filters and disk source-cache
 
 ## Quick Start
 
@@ -351,7 +352,9 @@ Without a sidecar the Manifest falls back to the filename stem as label and carr
 ```
 iiif-server/
 ├── crates/
-│   ├── iiif-core          # Shared types, config, errors, storage trait
+│   ├── iiif-core          # Shared types, config, errors, storage trait + backends
+│                          #   (filesystem, object_store-backed S3/Azure/GCS/HTTP,
+│                          #    routed multi-source, disk source-cache)
 │   ├── iiif-image         # Image API 3.0 (processing pipeline)
 │   ├── iiif-presentation  # Presentation API 3.0 (manifests, collections)
 │   ├── iiif-auth          # Authorization Flow API 2.0
