@@ -43,20 +43,23 @@ impl SearchIndex {
     }
 
     /// Search for annotations matching all query terms.
-    /// Optionally filter by motivation.
+    /// Optionally filter by a single motivation (back-compat helper for tests).
     pub fn search(&self, query: &str, motivation: Option<&str>) -> Vec<IndexedAnnotation> {
-        let (results, _total) = self.search_paginated(query, motivation, 0, usize::MAX);
+        let motivations = motivation.map(|m| vec![m.to_string()]);
+        let (results, _total) =
+            self.search_paginated(query, motivations.as_deref(), 0, usize::MAX);
         results
     }
 
     /// Search returning a page of results plus the total match count for paging.
     ///
-    /// `offset` and `limit` are post-filter (motivation already applied) so
-    /// callers can build `partOf.total`, `first`, `last`, `next`, `prev` correctly.
+    /// `motivations` (Search 2.0): if `Some(&[m1, m2, ...])`, match if the
+    /// annotation's motivation is *any* of the listed values (OR-semantics).
+    /// `None` or `Some(&[])` disables filtering.
     pub fn search_paginated(
         &self,
         query: &str,
-        motivation: Option<&str>,
+        motivations: Option<&[String]>,
         offset: usize,
         limit: usize,
     ) -> (Vec<IndexedAnnotation>, usize) {
@@ -81,12 +84,14 @@ impl SearchIndex {
         }
         let indices = result_indices.unwrap_or_default();
 
+        let motivation_filter = motivations.filter(|m| !m.is_empty());
+
         let filtered: Vec<&IndexedAnnotation> = indices
             .into_iter()
             .filter_map(|i| {
                 let anno = annotations.get(i)?;
-                if let Some(mot) = motivation {
-                    if anno.motivation != mot {
+                if let Some(allowed) = motivation_filter {
+                    if !allowed.iter().any(|m| m == &anno.motivation) {
                         return None;
                     }
                 }
@@ -143,6 +148,72 @@ fn tokenize(text: &str) -> Vec<String> {
         .filter(|s| !s.is_empty())
         .map(|s| s.to_lowercase())
         .collect()
+}
+
+/// Locate every case-insensitive occurrence of `term` in `text`. Returns
+/// (start, end) byte ranges into the *original* text. Used by the search
+/// handler to build `TextQuoteSelector` snippets for hit augmentation.
+///
+/// Lowercase-folding is naive (ASCII-clean, mostly fine for Latin scripts);
+/// for scripts where casefold changes byte length (German `ß` → `ss`) the
+/// offsets may drift. Acceptable for v0.3.0; revisit when we add a real
+/// linguistic tokenizer.
+pub fn find_term_positions(text: &str, term: &str) -> Vec<(usize, usize)> {
+    let lower_text = text.to_lowercase();
+    let lower_term = term.to_lowercase();
+    if lower_term.is_empty() || lower_term.len() != term.len() {
+        // If casefolding changed length we can't safely map back to byte offsets.
+        // Fall back to no positions (consumer falls back to bare `exact`).
+        return Vec::new();
+    }
+    let mut positions = Vec::new();
+    let mut start = 0;
+    while start <= lower_text.len() {
+        match lower_text[start..].find(&lower_term) {
+            Some(idx) => {
+                let abs_start = start + idx;
+                let abs_end = abs_start + lower_term.len();
+                // Verify abs_start lies on a char boundary in the original text;
+                // tokeniser prevented mid-codepoint splits, but search input is
+                // arbitrary, so be defensive.
+                if text.is_char_boundary(abs_start) && text.is_char_boundary(abs_end) {
+                    positions.push((abs_start, abs_end));
+                }
+                start = abs_end;
+                if abs_end == abs_start {
+                    break;
+                }
+            }
+            None => break,
+        }
+    }
+    positions
+}
+
+/// Take up to `max_chars` characters from one end of the slice on a UTF-8
+/// boundary. `from_end = true` returns the last N chars; `false` returns the
+/// first N. Used to trim `prefix`/`suffix` for `TextQuoteSelector`.
+pub fn trim_to_chars(s: &str, max_chars: usize, from_end: bool) -> &str {
+    if max_chars == 0 || s.is_empty() {
+        return "";
+    }
+    if from_end {
+        for (count, (idx, _)) in s.char_indices().rev().enumerate() {
+            if count + 1 == max_chars {
+                return &s[idx..];
+            }
+        }
+        s
+    } else {
+        let mut end = s.len();
+        for (count, (idx, _)) in s.char_indices().enumerate() {
+            if count == max_chars {
+                end = idx;
+                break;
+            }
+        }
+        &s[..end]
+    }
 }
 
 #[cfg(test)]
@@ -232,6 +303,42 @@ mod tests {
         let idx = SearchIndex::new();
         idx.add(sample_annotation("a1", "hello world", "c1"));
         assert!(idx.autocomplete("xyz", 10).is_empty());
+    }
+
+    #[test]
+    fn find_positions_basic() {
+        let text = "The quick brown fox and the brown dog.";
+        let positions = find_term_positions(text, "brown");
+        assert_eq!(positions, vec![(10, 15), (28, 33)]);
+    }
+
+    #[test]
+    fn find_positions_case_insensitive() {
+        let text = "Brown bears, brown rivers, BROWN sky";
+        let positions = find_term_positions(text, "brown");
+        assert_eq!(positions.len(), 3);
+        // Each position must point at the original (case-preserved) substring.
+        assert_eq!(&text[positions[0].0..positions[0].1], "Brown");
+        assert_eq!(&text[positions[1].0..positions[1].1], "brown");
+        assert_eq!(&text[positions[2].0..positions[2].1], "BROWN");
+    }
+
+    #[test]
+    fn find_positions_empty_query() {
+        assert!(find_term_positions("anything", "").is_empty());
+    }
+
+    #[test]
+    fn trim_to_chars_first_n() {
+        assert_eq!(trim_to_chars("hello world", 5, false), "hello");
+        assert_eq!(trim_to_chars("café shop", 4, false), "café");
+        assert_eq!(trim_to_chars("short", 100, false), "short");
+    }
+
+    #[test]
+    fn trim_to_chars_last_n() {
+        assert_eq!(trim_to_chars("hello world", 5, true), "world");
+        assert_eq!(trim_to_chars("café shop", 4, true), "shop");
     }
 
     #[test]

@@ -67,10 +67,19 @@ Compile-time type safety across the workspace. Invisible to IIIF clients but unb
 After v0.2.1 the implementation matches the literal spec. v0.3.0b fills in major spec features that v0.2.0 skipped entirely.
 
 ### Search — hit augmentation
-- [ ] Sibling `annotations: [AnnotationPage]` with motivations `contextualizing` and `highlighting`.
-- [ ] `target` as `SpecificResource` with `selector: TextQuoteSelector { prefix, exact, suffix }`.
-- [ ] Multi-target arrays for phrase matches spanning annotations.
-- [ ] ISO 8601 date range parsing for `date` parameter; OR-semantics for `motivation`/`user`.
+- [x] Sibling `annotations: [AnnotationPage]` with motivation `contextualizing` and TextQuoteSelector. (`highlighting` motivation reserved for future highlight-only UX.)
+- [x] `target` as `SpecificResource` with `selector: TextQuoteSelector { prefix, exact, suffix }`.
+- [x] `AnnotationTarget` enum supports the multi-target array form for phrase matches spanning annotations (handler emits one hit per term-position pair currently — extend to phrase matching when multi-term ranking lands).
+- [x] ISO 8601 date range parsing for `date` parameter (rejects malformed); OR-semantics for `motivation` (space-separated), `user` recognised as a parameter.
+
+### Presentation — model gaps
+- [x] `AnnotationCollection`, `placeholderCanvas`, `accompanyingCanvas` types and fields.
+- [x] `SpecificResource` + selectors (`FragmentSelector`, `PointSelector`, `SvgSelector`, `TextQuoteSelector`); shared between Presentation and Search via `iiif-core::annotation`.
+- [x] `Service` refactored to `#[serde(tag="type")]` enum in v0.3.0a.
+- [x] Typed `Start { id, type, source?, selector? }` and `Range.supplementary: AnnotationCollectionRef`.
+- [x] Routes for `/canvas/{id}/{cid}`, `/annotation-page/{id}/{pid}`, `/annotation/{id}/{aid}`, `/range/{id}/{rid}` registered. Auto-generated manifests dereference Canvas/AnnotationPage/Annotation; Range always 404s (no `structures` until v0.6.0 manifest editor).
+- [x] Content negotiation — `application/ld+json` default with profile parameter, `application/json` fallback when explicitly accepted, 406 for unacceptable Accept. `Vary: accept` emitted.
+- [ ] Sidecar metadata — read `images/<name>.toml` and merge into Manifest (`label`, `metadata[]`, `summary`, `rights`, `provider`). Today every Manifest has only the filename stem as label. **Deferred to v0.3.0c** — needs storage-trait extension for non-image artifacts.
 
 ### Auth — second and third patterns
 - [ ] **`kiosk` pattern** — descriptor with `id`, no UI in opened tab.
@@ -78,15 +87,6 @@ After v0.2.1 the implementation matches the literal spec. v0.3.0b fills in major
 - [ ] **`AuthLogoutService2`** — endpoint that actively purges cookies AND token map (today `cleanup()` exists at `crates/iiif-auth/src/store.rs:101` but no scheduler invokes it).
 - [ ] **Tiered access** — populate `substitute[]` in probe response (low-res image when access denied).
 - [ ] **Origin allowlist** — validate `?origin=` against config-driven whitelist on access AND token services.
-
-### Presentation — model gaps
-- [ ] Add `AnnotationCollection`, `placeholderCanvas`, `accompanyingCanvas` types and fields.
-- [ ] Add `SpecificResource` + selectors (`FragmentSelector`, `PointSelector`, `SvgSelector`).
-- [ ] Refactor `Service` into a `#[serde(tag="type")]` enum (`ImageService3`, `AuthAccessService2`, `SearchService2`, `AutoCompleteService2`, ...). Today it's one flat struct conflating all variants.
-- [ ] Type the untyped `start: serde_json::Value` and `Range.supplementary` as proper structs.
-- [ ] **Register routes for `/canvas/{id}`, `/annotation-page/{id}`, `/annotation/{id}`, `/range/{id}`** — currently the builder mints these URIs but they 404 when dereferenced.
-- [ ] **Sidecar metadata** — read `images/<name>.json` or `images/<name>.toml` and merge into Manifest (`label`, `metadata[]`, `summary`, `rights`, `provider`). Today every Manifest has only the filename stem as label.
-- [ ] **Content negotiation** — honor `Accept: application/json` (no profile parameter), return 406 for unacceptable Accept (`crates/iiif-presentation/src/handlers.rs:28-60`).
 
 
 ## v0.4.0 — Storage Backends

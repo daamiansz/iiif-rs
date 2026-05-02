@@ -21,6 +21,9 @@ pub enum IiifError {
     #[error("Forbidden: {0}")]
     Forbidden(String),
 
+    #[error("Not acceptable: {0}")]
+    NotAcceptable(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 
@@ -45,6 +48,7 @@ impl IiifError {
             Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::NotAcceptable(_) => StatusCode::NOT_ACCEPTABLE,
             Self::NotImplemented(_) => StatusCode::NOT_IMPLEMENTED,
             Self::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) | Self::ImageProcessing(_) | Self::Storage(_) | Self::Io(_) => {
@@ -89,6 +93,10 @@ mod tests {
     fn status_codes_map_correctly() {
         assert_eq!(IiifError::BadRequest("x".into()).status_code(), StatusCode::BAD_REQUEST);
         assert_eq!(IiifError::NotFound("x".into()).status_code(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            IiifError::NotAcceptable("x".into()).status_code(),
+            StatusCode::NOT_ACCEPTABLE
+        );
         assert_eq!(
             IiifError::NotImplemented("x".into()).status_code(),
             StatusCode::NOT_IMPLEMENTED

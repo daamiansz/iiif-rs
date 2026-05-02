@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use iiif_core::annotation::AnnotationTarget;
+
 /// IIIF Content Search API 2.0 search response (one AnnotationPage of a paginated set).
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchResponse {
@@ -19,9 +21,17 @@ pub struct SearchResponse {
     pub next: Option<PageRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev: Option<PageRef>,
+    /// Sibling AnnotationPages (NOT `items`) carrying hit augmentation —
+    /// each item is an Annotation with motivation `contextualizing` or
+    /// `highlighting` and a `target` SpecificResource pointing at the
+    /// matched annotation in `items[]` with a TextQuoteSelector.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<Vec<HitAnnotationPage>>,
 }
 
-/// Annotation in a search result.
+/// Annotation in a search result. `target` may be a plain Canvas URI (string),
+/// a SpecificResource, or a list of SpecificResources for cross-annotation
+/// phrase matches per Content Search 2.0.
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchAnnotation {
     pub id: String,
@@ -29,7 +39,28 @@ pub struct SearchAnnotation {
     pub resource_type: String,
     pub motivation: String,
     pub body: TextualBody,
-    pub target: String,
+    pub target: AnnotationTarget,
+}
+
+/// AnnotationPage carrying hit-augmentation Annotations (sibling to `items[]`
+/// in the response, NOT nested inside it).
+#[derive(Debug, Clone, Serialize)]
+pub struct HitAnnotationPage {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub items: Vec<HitAnnotation>,
+}
+
+/// A hit-augmentation Annotation. Motivation is `contextualizing` (snippet with
+/// surrounding text) or `highlighting` (in-body match marker).
+#[derive(Debug, Clone, Serialize)]
+pub struct HitAnnotation {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub motivation: String,
+    pub target: AnnotationTarget,
 }
 
 /// TextualBody for search results.
@@ -105,6 +136,9 @@ impl SearchResponse {
     /// `page_url` is `collection_id` for page 0, or `collection_id&page=N` for page N.
     /// `total` is the total number of matches across all pages; `page_size` is the
     /// per-page item count; `page` is the zero-based current page index.
+    /// `hits` is the optional sibling `annotations[]` array carrying TextQuoteSelector
+    /// hit augmentation per Content Search 2.0 §4.3.
+    #[allow(clippy::too_many_arguments)]
     pub fn paginated(
         collection_id: &str,
         items: Vec<SearchAnnotation>,
@@ -112,6 +146,7 @@ impl SearchResponse {
         total: usize,
         page: usize,
         page_size: usize,
+        hits: Option<Vec<HitAnnotationPage>>,
         page_url_for: impl Fn(usize) -> String,
     ) -> Self {
         let page_count = if total == 0 {
@@ -162,6 +197,7 @@ impl SearchResponse {
             part_of: Some(part_of),
             next,
             prev,
+            annotations: hits,
         }
     }
 }
@@ -196,12 +232,15 @@ mod tests {
                     value: "A bird".to_string(),
                     format: "text/plain".to_string(),
                 },
-                target: "http://localhost:8080/canvas/p1#xywh=0,0,100,100".to_string(),
+                target: AnnotationTarget::Id(
+                    "http://localhost:8080/canvas/p1#xywh=0,0,100,100".to_string(),
+                ),
             }],
             vec![],
             1,
             0,
             50,
+            None,
             |p| {
                 if p == 0 {
                     collection.to_string()
@@ -231,7 +270,7 @@ mod tests {
 
         // 130 results, 50 per page → 3 pages (0, 1, 2). Page 1 has both prev and next.
         let resp =
-            SearchResponse::paginated(collection, vec![], vec![], 130, 1, 50, url);
+            SearchResponse::paginated(collection, vec![], vec![], 130, 1, 50, None, url);
 
         let part_of = resp.part_of.as_ref().unwrap();
         assert_eq!(part_of.total, 130);

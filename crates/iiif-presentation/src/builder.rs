@@ -96,10 +96,12 @@ pub fn build_manifest_for_image(
                         service: Some(body_services),
                         label: None,
                     },
-                    target: canvas_id,
+                    target: AnnotationTarget::Id(canvas_id),
                 }]),
             }]),
             annotations: None,
+            placeholder_canvas: None,
+            accompanying_canvas: None,
         }],
         structures: None,
         homepage: None,
@@ -114,6 +116,8 @@ pub fn build_manifest_for_image(
             label: None,
         }]),
         start: None,
+        placeholder_canvas: None,
+        accompanying_canvas: None,
     }
 }
 
