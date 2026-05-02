@@ -36,7 +36,71 @@ pub struct ImageConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct StorageConfig {
+    /// Filesystem root for the default backend. Always present (used when
+    /// `sources` is empty or omitted, and as a fallback for `scan_images`).
     pub root_path: String,
+    /// Optional multi-source backends. When non-empty, requests are routed
+    /// across them in declaration order, with the filesystem `root_path`
+    /// appended last as the catch-all fallback.
+    #[serde(default)]
+    pub sources: Vec<StorageSourceConfig>,
+}
+
+/// One entry in the `[[storage.sources]]` array.
+///
+/// Example (S3-compatible):
+/// ```toml
+/// [[storage.sources]]
+/// kind = "s3"
+/// label = "rare-books"
+/// bucket = "iiif-rare"
+/// region = "eu-west-1"
+/// prefix = "manuscripts/"
+/// access_zone = "restricted"
+/// prefix_filter = "rare-"
+/// ```
+///
+/// Example (HTTP remote with source caching):
+/// ```toml
+/// [[storage.sources]]
+/// kind = "http"
+/// label = "wikimedia"
+/// url = "https://upload.wikimedia.org/wikipedia/commons/"
+/// prefix_filter = "wm-"
+/// ```
+#[derive(Debug, Clone, Deserialize)]
+pub struct StorageSourceConfig {
+    /// Backend type: `"s3"`, `"azure"`, `"gcs"`, `"http"`, or `"local"`.
+    pub kind: String,
+    /// Human-readable label for logs.
+    #[serde(default)]
+    pub label: String,
+    /// S3/GCS bucket name (required for `kind = "s3"` / `"gcs"`).
+    #[serde(default)]
+    pub bucket: String,
+    /// AWS region (S3 only). Falls back to env / default chain when empty.
+    #[serde(default)]
+    pub region: String,
+    /// Custom endpoint URL (S3-compatible like MinIO; HTTP remote root).
+    #[serde(default)]
+    pub url: String,
+    /// Azure storage account name (Azure only).
+    #[serde(default)]
+    pub account: String,
+    /// Azure container name (Azure only).
+    #[serde(default)]
+    pub container: String,
+    /// Object prefix prepended to every key (e.g. `"images/"`).
+    #[serde(default)]
+    pub prefix: String,
+    /// Access zone reported by `access_zone()` for every id this source
+    /// serves. Empty = public.
+    #[serde(default)]
+    pub access_zone: String,
+    /// Identifier-prefix routing hint. Only identifiers starting with this
+    /// string are dispatched to this source. Empty = catch-all.
+    #[serde(default)]
+    pub prefix_filter: String,
 }
 
 /// Authentication / authorization configuration.
@@ -147,6 +211,7 @@ impl Default for AppConfig {
             },
             storage: StorageConfig {
                 root_path: "./images".to_string(),
+                sources: Vec::new(),
             },
             auth: AuthConfig::default(),
             performance: PerformanceConfig::default(),

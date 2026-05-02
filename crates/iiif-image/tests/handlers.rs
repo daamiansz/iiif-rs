@@ -33,7 +33,7 @@ impl ImageStorage for StubStorage {
     async fn last_modified(&self, _id: &str) -> Result<std::time::SystemTime, IiifError> {
         Err(IiifError::NotFound("stub".into()))
     }
-    fn containing_directory(&self, _id: &str) -> Option<String> {
+    fn access_zone(&self, _id: &str) -> Option<String> {
         None
     }
 }

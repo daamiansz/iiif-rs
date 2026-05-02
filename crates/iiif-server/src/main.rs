@@ -15,7 +15,6 @@ use iiif_auth::middleware::{check_access, CookieName};
 use iiif_auth::AuthStore;
 use iiif_core::config::AppConfig;
 use iiif_core::state::AppState;
-use iiif_core::storage::filesystem::FilesystemStorage;
 use iiif_discovery::ActivityStore;
 use iiif_image::handlers::ImageCache;
 use iiif_search::SearchIndex;
@@ -51,11 +50,14 @@ async fn main() {
         "Starting IIIF server"
     );
 
-    // Initialize storage
-    let storage = FilesystemStorage::new(&config.storage.root_path).unwrap_or_else(|e| {
-        error!("Failed to initialize storage: {e}");
-        std::process::exit(1);
-    });
+    // Initialize storage. When `[[storage.sources]]` is configured, build each
+    // backend, optionally wrap with the disk source-cache, and route across
+    // them with the filesystem `root_path` as catch-all fallback.
+    let storage: Arc<dyn iiif_core::storage::ImageStorage> = build_storage(&config)
+        .unwrap_or_else(|e| {
+            error!("Failed to initialize storage: {e}");
+            std::process::exit(1);
+        });
 
     let auth_store: Option<Arc<AuthStore>> = if config.auth.enabled {
         info!(
@@ -109,7 +111,7 @@ async fn main() {
 
     let state = AppState {
         config: Arc::new(config.clone()),
-        storage: Arc::new(storage),
+        storage,
     };
 
     // Build application — each crate's router is `Router<AppState>`. Optional
@@ -372,4 +374,61 @@ async fn shutdown_signal() {
         .await
         .expect("Failed to install CTRL+C signal handler");
     info!("Received shutdown signal, finishing active requests...");
+}
+
+/// Construct the storage layer.
+///
+/// - Single filesystem source when `[[storage.sources]]` is empty (v0.3.x
+///   behaviour preserved).
+/// - Otherwise, `RoutedStorage` containing each declared source in order,
+///   with the filesystem `root_path` appended last as a catch-all. HTTP
+///   sources are wrapped in `CachedSourceStorage` when `tile_cache_dir`
+///   is configured.
+fn build_storage(
+    config: &iiif_core::config::AppConfig,
+) -> Result<Arc<dyn iiif_core::storage::ImageStorage>, Box<dyn std::error::Error>> {
+    use iiif_core::storage::cached::CachedSourceStorage;
+    use iiif_core::storage::filesystem::FilesystemStorage;
+    use iiif_core::storage::object_store_backend::build_source;
+    use iiif_core::storage::routed::RoutedStorage;
+    use iiif_core::storage::ImageStorage;
+
+    let fs = Arc::new(FilesystemStorage::new(&config.storage.root_path)?);
+
+    if config.storage.sources.is_empty() {
+        return Ok(fs as Arc<dyn ImageStorage>);
+    }
+
+    let mut sources: Vec<Arc<dyn ImageStorage>> = Vec::new();
+    let cache_dir = config.performance.tile_cache_dir.clone();
+
+    for src in &config.storage.sources {
+        let backend = build_source(src)?;
+        let label = backend.label().to_string();
+        info!(
+            kind = %src.kind,
+            label = %label,
+            prefix_filter = %src.prefix_filter,
+            access_zone = %src.access_zone,
+            "Storage source registered"
+        );
+        let arc: Arc<dyn ImageStorage> = if src.kind == "http" {
+            if let Some(dir) = cache_dir.as_deref() {
+                Arc::new(CachedSourceStorage::new(
+                    Arc::new(backend),
+                    std::path::PathBuf::from(dir),
+                    label,
+                ))
+            } else {
+                Arc::new(backend)
+            }
+        } else {
+            Arc::new(backend)
+        };
+        sources.push(arc);
+    }
+
+    // Filesystem catch-all last.
+    sources.push(fs as Arc<dyn ImageStorage>);
+    Ok(Arc::new(RoutedStorage::new(sources)) as Arc<dyn ImageStorage>)
 }

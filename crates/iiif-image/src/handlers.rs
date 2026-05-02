@@ -101,7 +101,7 @@ async fn info_handler(
     let auth_service = if state.config.auth.enabled {
         let in_protected = state
             .storage
-            .containing_directory(identifier.as_str())
+            .access_zone(identifier.as_str())
             .map(|dir| state.config.auth.protected_dirs.iter().any(|p| p == &dir))
             .unwrap_or(false);
         if in_protected {

@@ -91,7 +91,7 @@ fn is_protected(state: &AppState, id: &str) -> bool {
     }
     state
         .storage
-        .containing_directory(id)
+        .access_zone(id)
         .map(|dir| state.config.auth.protected_dirs.iter().any(|p| p == &dir))
         .unwrap_or(false)
 }

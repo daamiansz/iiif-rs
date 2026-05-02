@@ -89,13 +89,17 @@ After v0.2.1 the implementation matches the literal spec. v0.3.0b fills in major
 - [x] **Origin allowlist** — `auth.allowed_origins`; non-empty list = exact-match required, empty = any well-formed origin (back-compat).
 
 
-## v0.4.0 — Storage Backends
+## v0.4.0 — Storage Backends (done)
 
-- [ ] **S3 / MinIO storage** — read images from Amazon S3 or S3-compatible object storage.
-- [ ] **Azure Blob Storage** — Azure cloud storage backend.
-- [ ] **Google Cloud Storage** — GCS bucket backend.
-- [ ] **HTTP remote storage** — fetch source images from remote HTTP URLs with local caching.
-- [ ] **Multi-source routing** — route different identifier prefixes to different storage backends.
+Single dep (`object_store`) covers all four cloud backends + HTTP. Multi-source routing wraps them with filesystem fallback. `containing_directory` was renamed to the universal `access_zone` to work uniformly across filesystem (subdirectory) and cloud (config-driven label) sources.
+
+- [x] **S3 / MinIO** — `kind = "s3"`; AWS credential provider chain; custom endpoint for MinIO/Wasabi/R2.
+- [x] **Azure Blob Storage** — `kind = "azure"`; account + container.
+- [x] **Google Cloud Storage** — `kind = "gcs"`; bucket; service-account from `GOOGLE_APPLICATION_CREDENTIALS`.
+- [x] **HTTP remote** — `kind = "http"`; read-only fetch with disk source-cache under `tile_cache_dir/source/` (SHA-256 keyed).
+- [x] **Multi-source routing** — `RoutedStorage` tries sources in declaration order, uses sync `claims()` with optional `prefix_filter` to skip HEAD round-trips, propagates hard errors instead of silently masking them with the next source. Filesystem `root_path` always appended last as catch-all.
+- [x] **`access_zone` trait method** — replaces `containing_directory`; uniform across filesystem (subdirectory name) and cloud (per-source config string).
+- [x] **Slash-in-identifier compatibility** — `ark:/12025/654` maps to hierarchical cloud keys (`prefix/ark:/12025/654.jpg`) without custom encoding.
 
 ## v0.5.0 — Auth & Multi-tenancy
 

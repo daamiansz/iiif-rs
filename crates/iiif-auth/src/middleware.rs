@@ -51,7 +51,7 @@ pub async fn check_access(request: Request, next: Next) -> Response {
     }
 
     // Check which directory the image is in
-    let subdir = storage.containing_directory(identifier);
+    let subdir = storage.access_zone(identifier);
     let is_protected = match &subdir {
         Some(dir) => auth_config.protected_dirs.iter().any(|d| d == dir),
         None => false,

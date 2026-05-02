@@ -44,6 +44,9 @@ toml = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 sha2 = "0.10"
 async-trait = "0.1"
+object_store = { version = "0.13", features = ["aws", "azure", "gcp", "http"] }
+url = "2"
+futures = "0.3"
 
 iiif-core = { path = "crates/iiif-core" }
 iiif-image = { path = "crates/iiif-image" }

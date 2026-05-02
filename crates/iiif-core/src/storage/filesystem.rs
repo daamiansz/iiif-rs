@@ -145,8 +145,14 @@ impl ImageStorage for FilesystemStorage {
             .map_err(|e| IiifError::Storage(format!("Failed to get modification time: {e}")))
     }
 
-    fn containing_directory(&self, identifier: &str) -> Option<String> {
+    fn access_zone(&self, identifier: &str) -> Option<String> {
         self.find_containing_subdir(identifier)
+    }
+
+    fn claims(&self, identifier: &str) -> bool {
+        // Sync filesystem lookup — same one `access_zone` already performs;
+        // mirrors the v0.3.x behaviour for `containing_directory`.
+        self.find_image_file(identifier).is_ok()
     }
 
     async fn read_sidecar(&self, identifier: &str) -> Option<Vec<u8>> {
@@ -197,7 +203,7 @@ mod tests {
 
         let storage = FilesystemStorage::new(&dir).unwrap();
         assert!(storage.exists("sample").await.unwrap());
-        assert_eq!(storage.containing_directory("sample"), None);
+        assert_eq!(storage.access_zone("sample"), None);
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -214,7 +220,7 @@ mod tests {
         let storage = FilesystemStorage::new(&dir).unwrap();
         assert!(storage.exists("secret").await.unwrap());
         assert_eq!(
-            storage.containing_directory("secret"),
+            storage.access_zone("secret"),
             Some("restricted".to_string())
         );
 
@@ -236,7 +242,7 @@ mod tests {
         f.write_all(b"restricted-version").unwrap();
 
         let storage = FilesystemStorage::new(&dir).unwrap();
-        assert_eq!(storage.containing_directory("photo"), None);
+        assert_eq!(storage.access_zone("photo"), None);
         assert_eq!(storage.read_image("photo").await.unwrap(), b"root-version");
 
         let _ = fs::remove_dir_all(&dir);

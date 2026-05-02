@@ -195,6 +195,56 @@ username = "admin"
 password = "changeme"
 ```
 
+## Storage backends
+
+By default the server reads images from `[storage].root_path` on local disk. v0.4.0 adds optional cloud and remote-HTTP sources via the `[[storage.sources]]` array, routed across multiple backends in declaration order with the filesystem catch-all appended last.
+
+```toml
+[storage]
+root_path = "./images"  # always present, used as the catch-all source
+
+# S3 (or any S3-compatible — MinIO, Wasabi, R2, ...)
+[[storage.sources]]
+kind          = "s3"
+label         = "rare-books"
+bucket        = "iiif-rare"
+region        = "eu-west-1"
+prefix        = "manuscripts/"      # object-key prefix inside the bucket
+access_zone   = "restricted"        # surfaces in `access_zone()` for auth
+prefix_filter = "rare-"             # only ids starting with "rare-" hit this source
+
+# Azure Blob Storage
+[[storage.sources]]
+kind        = "azure"
+label       = "azure-archive"
+account     = "myaccount"
+container   = "iiif"
+prefix      = "originals/"
+
+# Google Cloud Storage
+[[storage.sources]]
+kind   = "gcs"
+label  = "gcs-thumbs"
+bucket = "my-iiif-bucket"
+
+# HTTP remote (read-only fetch from any HTTP-accessible bucket / mirror)
+[[storage.sources]]
+kind          = "http"
+label         = "wikimedia"
+url           = "https://upload.wikimedia.org/wikipedia/commons/"
+prefix_filter = "wm-"
+```
+
+Routing rules:
+
+- Sources are tried **in declaration order**. The first one whose `prefix_filter` matches the identifier (or which has no filter) handles the request.
+- `prefix_filter` keeps cold requests fast: a 3-source cloud setup without filters would HEAD all three sources before falling back to filesystem.
+- `access_zone` integrates with the existing `auth.protected_dirs` model — set `access_zone = "restricted"` on a source and add `"restricted"` to `protected_dirs` to require login for everything that source serves.
+- Identifiers containing `/` (e.g. `ark:/12025/654xz321`) become hierarchical keys in the cloud backend (`prefix/ark:/12025/654xz321.jpg`); no special encoding required.
+- HTTP source fetches are cached on disk under `<tile_cache_dir>/source/` (SHA-256 keyed by source label + identifier). Delete the directory to refresh.
+
+Credentials use the standard provider chains: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` for S3, `AZURE_STORAGE_ACCOUNT_KEY` for Azure, `GOOGLE_APPLICATION_CREDENTIALS` for GCS.
+
 ## Image Directory Structure
 
 The server scans `images/` and its immediate subdirectories. The image filename (without extension) becomes the identifier in URLs.
@@ -320,7 +370,7 @@ Each IIIF specification is implemented as an independent crate with its own type
 
 ```bash
 cargo build                  # Compile
-cargo test                   # Run all tests (163 unit + integration)
+cargo test                   # Run all tests (180 unit + integration)
 cargo clippy -- -D warnings  # Lint (zero warnings required)
 cargo fmt --check            # Check formatting
 cargo doc --open             # Generate documentation
