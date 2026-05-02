@@ -2,13 +2,17 @@ use serde::Serialize;
 
 use iiif_core::config::ImageConfig;
 
+const IMAGE_CONTEXT: &str = "http://iiif.io/api/image/3/context.json";
+const AUTH_CONTEXT: &str = "http://iiif.io/api/auth/2/context.json";
+
 /// IIIF Image Information (info.json) response.
 ///
 /// Conforms to IIIF Image API 3.0 specification.
 #[derive(Debug, Clone, Serialize)]
 pub struct ImageInfo {
+    /// Either a single context URI string or an array (when auth context is prepended).
     #[serde(rename = "@context")]
-    pub context: String,
+    pub context: serde_json::Value,
     pub id: String,
     #[serde(rename = "type")]
     pub resource_type: String,
@@ -69,16 +73,20 @@ pub struct TileEntry {
 
 impl ImageInfo {
     /// Build an `ImageInfo` response for a given image.
+    ///
+    /// `auth_service` is the optional probe-service descriptor to embed in `service[]`
+    /// for protected resources. When present, the auth API context is prepended to
+    /// `@context` per IIIF Auth Flow 2.0.
     pub fn build(
         base_url: &str,
         identifier: &str,
         img_width: u32,
         img_height: u32,
         config: &ImageConfig,
+        auth_service: Option<serde_json::Value>,
     ) -> Self {
         let id = format!("{base_url}/{identifier}");
 
-        // Generate preferred sizes (powers of 2 downscaling)
         let sizes = generate_sizes(img_width, img_height);
 
         let tiles = vec![TileEntry {
@@ -87,8 +95,39 @@ impl ImageInfo {
             scale_factors: config.tile_scale_factors.clone(),
         }];
 
+        let context = match &auth_service {
+            Some(_) => serde_json::json!([AUTH_CONTEXT, IMAGE_CONTEXT]),
+            None => serde_json::json!(IMAGE_CONTEXT),
+        };
+
+        let service = auth_service.map(|v| vec![v]);
+
+        // `extraFeatures` is derived from runtime config, not hardcoded — info.json
+        // must not advertise features the server is configured to refuse.
+        let mut extra_features = vec![
+            "baseUriRedirect".to_string(),
+            "canonicalLinkHeader".to_string(),
+            "cors".to_string(),
+            "jsonldMediaType".to_string(),
+            "mirroring".to_string(),
+            "profileLinkHeader".to_string(),
+            "regionByPct".to_string(),
+            "regionByPx".to_string(),
+            "regionSquare".to_string(),
+            "rotationArbitrary".to_string(),
+            "rotationBy90s".to_string(),
+            "sizeByConfinedWh".to_string(),
+            "sizeByH".to_string(),
+            "sizeByPct".to_string(),
+            "sizeByW".to_string(),
+            "sizeByWh".to_string(),
+        ];
+        if config.allow_upscaling {
+            extra_features.push("sizeUpscaling".to_string());
+        }
+
         Self {
-            context: "http://iiif.io/api/image/3/context.json".to_string(),
+            context,
             id,
             resource_type: "ImageService3".to_string(),
             protocol: "http://iiif.io/api/image".to_string(),
@@ -106,29 +145,12 @@ impl ImageInfo {
                 "bitonal".to_string(),
             ]),
             extra_formats: Some(vec!["png".to_string(), "webp".to_string()]),
-            extra_features: Some(vec![
-                "baseUriRedirect".to_string(),
-                "canonicalLinkHeader".to_string(),
-                "cors".to_string(),
-                "mirroring".to_string(),
-                "profileLinkHeader".to_string(),
-                "regionByPct".to_string(),
-                "regionByPx".to_string(),
-                "regionSquare".to_string(),
-                "rotationArbitrary".to_string(),
-                "rotationBy90s".to_string(),
-                "sizeByConfinedWh".to_string(),
-                "sizeByH".to_string(),
-                "sizeByPct".to_string(),
-                "sizeByW".to_string(),
-                "sizeByWh".to_string(),
-                "sizeUpscaling".to_string(),
-            ]),
+            extra_features: Some(extra_features),
             preferred_formats: Some(vec!["webp".to_string(), "jpg".to_string()]),
             rights: None,
             part_of: None,
             see_also: None,
-            service: None,
+            service,
             homepage: None,
             logo: None,
             rendering: None,
@@ -192,12 +214,66 @@ mod tests {
             tile_scale_factors: vec![1, 2, 4, 8, 16],
         };
 
-        let info = ImageInfo::build("http://localhost:8080", "test123", 6000, 4000, &config);
+        let info =
+            ImageInfo::build("http://localhost:8080", "test123", 6000, 4000, &config, None);
         let json = serde_json::to_string_pretty(&info).unwrap();
 
         assert!(json.contains("\"@context\""));
         assert!(json.contains("\"ImageService3\""));
         assert!(json.contains("\"http://iiif.io/api/image\""));
         assert!(json.contains("\"level2\""));
+        assert!(json.contains("\"sizeUpscaling\""));
+        assert!(json.contains("\"jsonldMediaType\""));
+        // No auth → context is a single string
+        assert_eq!(
+            info.context,
+            serde_json::json!("http://iiif.io/api/image/3/context.json")
+        );
+        // No probe service when not protected
+        assert!(info.service.is_none());
+    }
+
+    #[test]
+    fn info_json_omits_size_upscaling_when_disabled() {
+        let config = ImageConfig {
+            max_width: Some(4096),
+            max_height: Some(4096),
+            max_area: Some(16_777_216),
+            allow_upscaling: false,
+            tile_width: 512,
+            tile_scale_factors: vec![1, 2, 4, 8, 16],
+        };
+
+        let info =
+            ImageInfo::build("http://localhost:8080", "test123", 6000, 4000, &config, None);
+        let features = info.extra_features.unwrap();
+        assert!(!features.iter().any(|f| f == "sizeUpscaling"));
+    }
+
+    #[test]
+    fn info_json_with_auth_prepends_auth_context() {
+        let config = ImageConfig {
+            max_width: None,
+            max_height: None,
+            max_area: None,
+            allow_upscaling: true,
+            tile_width: 512,
+            tile_scale_factors: vec![1, 2, 4, 8, 16],
+        };
+        let probe = serde_json::json!({"id": "x", "type": "AuthProbeService2"});
+        let info = ImageInfo::build(
+            "http://localhost:8080",
+            "test",
+            100,
+            100,
+            &config,
+            Some(probe.clone()),
+        );
+
+        let ctx = info.context.as_array().unwrap();
+        assert_eq!(ctx.len(), 2);
+        assert_eq!(ctx[0], "http://iiif.io/api/auth/2/context.json");
+        assert_eq!(ctx[1], "http://iiif.io/api/image/3/context.json");
+        assert_eq!(info.service.unwrap(), vec![probe]);
     }
 }

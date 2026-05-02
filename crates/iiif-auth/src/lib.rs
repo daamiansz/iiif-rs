@@ -5,3 +5,4 @@ pub mod types;
 
 pub use handlers::router;
 pub use store::AuthStore;
+pub use types::{build_probe_service_descriptor, AUTH_CONTEXT};

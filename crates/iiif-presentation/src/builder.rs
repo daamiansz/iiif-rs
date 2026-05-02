@@ -1,5 +1,6 @@
 use std::io::Cursor;
 
+use serde_json::json;
 use tracing::debug;
 
 use iiif_core::config::AppConfig;
@@ -8,12 +9,24 @@ use iiif_core::storage::ImageStorage;
 
 use crate::types::*;
 
+fn image_service3(id: &str) -> serde_json::Value {
+    json!({
+        "id": id,
+        "type": "ImageService3",
+        "profile": "level2",
+    })
+}
+
 /// Build a Manifest for a single image, auto-linking to the Image API service.
+///
+/// `is_protected` controls whether the image's body carries an `AuthProbeService2`
+/// alongside `ImageService3`, and whether the auth context is prepended.
 pub fn build_manifest_for_image(
     identifier: &str,
     img_width: u32,
     img_height: u32,
     config: &AppConfig,
+    is_protected: bool,
 ) -> Manifest {
     let base = &config.server.base_url;
     let manifest_id = format!("{base}/manifest/{identifier}");
@@ -27,8 +40,19 @@ pub fn build_manifest_for_image(
     let thumb_w = 200;
     let thumb_h = (img_height as f64 / img_width as f64 * thumb_w as f64).round() as u32;
 
+    let mut body_services = vec![image_service3(&image_service_id)];
+    let context = if is_protected {
+        body_services.push(iiif_auth::build_probe_service_descriptor(base, identifier));
+        ContextValue::Multiple(vec![
+            iiif_auth::AUTH_CONTEXT.to_string(),
+            "http://iiif.io/api/presentation/3/context.json".to_string(),
+        ])
+    } else {
+        ContextValue::default()
+    };
+
     Manifest {
-        context: ContextValue::default(),
+        context,
         id: manifest_id,
         resource_type: "Manifest".to_string(),
         label: lang("none", identifier),
@@ -44,11 +68,7 @@ pub fn build_manifest_for_image(
             width: Some(thumb_w),
             height: Some(thumb_h),
             duration: None,
-            service: Some(vec![Service {
-                id: image_service_id.clone(),
-                service_type: "ImageService3".to_string(),
-                profile: Some("level2".to_string()),
-            }]),
+            service: Some(vec![image_service3(&image_service_id)]),
             label: None,
         }]),
         viewing_direction: Some("left-to-right".to_string()),
@@ -77,11 +97,7 @@ pub fn build_manifest_for_image(
                         width: Some(img_width),
                         height: Some(img_height),
                         duration: None,
-                        service: Some(vec![Service {
-                            id: image_service_id,
-                            service_type: "ImageService3".to_string(),
-                            profile: Some("level2".to_string()),
-                        }]),
+                        service: Some(body_services),
                         label: None,
                     },
                     target: canvas_id,
@@ -126,11 +142,7 @@ pub fn build_root_collection(identifiers: &[(String, u32, u32)], config: &AppCon
                     width: Some(thumb_w),
                     height: Some(thumb_h.max(1)),
                     duration: None,
-                    service: Some(vec![Service {
-                        id: format!("{base}/{id}"),
-                        service_type: "ImageService3".to_string(),
-                        profile: Some("level2".to_string()),
-                    }]),
+                    service: Some(vec![image_service3(&format!("{base}/{id}"))]),
                     label: None,
                 }]),
             }

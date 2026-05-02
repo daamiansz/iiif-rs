@@ -19,7 +19,6 @@ use iiif_core::state::AppState;
 use iiif_core::storage::filesystem::FilesystemStorage;
 use iiif_discovery::ActivityStore;
 use iiif_image::handlers::ImageCache;
-use iiif_search::index::IndexedAnnotation;
 use iiif_search::SearchIndex;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::timeout::TimeoutLayer;
@@ -38,6 +37,11 @@ async fn main() {
         error!("Failed to load configuration: {e}");
         std::process::exit(1);
     });
+
+    if let Err(e) = iiif_core::config::validate_security_config(&config) {
+        error!("Configuration error: {e}");
+        std::process::exit(1);
+    }
 
     info!(
         host = %config.server.host,
@@ -66,14 +70,10 @@ async fn main() {
         None
     };
 
-    // Initialize search index with sample annotations
     let search_index = Arc::new(SearchIndex::new());
-    seed_search_index(&search_index, &config.server.base_url);
     info!(annotations = search_index.len(), "Search index initialized");
 
-    // Initialize change discovery store with seed activities
-    let activity_store = Arc::new(ActivityStore::new(20));
-    seed_activities(&activity_store, &config.server.base_url);
+    let activity_store = Arc::new(ActivityStore::new(20, &config.server.base_url));
     info!(
         activities = activity_store.total(),
         "Activity store initialized"
@@ -201,7 +201,16 @@ async fn main() {
                 error!("Failed to load TLS certificates: {e}");
                 std::process::exit(1);
             });
+
+        let handle = axum_server::Handle::new();
+        let shutdown_handle = handle.clone();
+        tokio::spawn(async move {
+            shutdown_signal().await;
+            shutdown_handle.graceful_shutdown(Some(Duration::from_secs(30)));
+        });
+
         axum_server::bind_rustls(addr, tls_config)
+            .handle(handle)
             .serve(app.into_make_service_with_connect_info::<SocketAddr>())
             .await
             .unwrap_or_else(|e| {
@@ -347,35 +356,4 @@ async fn shutdown_signal() {
         .await
         .expect("Failed to install CTRL+C signal handler");
     info!("Received shutdown signal, finishing active requests...");
-}
-
-/// Seed the search index with sample annotations for demonstration.
-fn seed_search_index(index: &SearchIndex, base_url: &str) {
-    let samples = [
-        ("creation", "The Creation of the World, Bible Historiale, medieval manuscript illumination depicting Genesis"),
-        ("creation", "God creating heaven and earth, angels observing the divine act of creation"),
-        ("creation", "Decorated initial with gold leaf, blue and red pigments, Gothic script"),
-        ("test", "IIIF validator test image with colored squares in a 10x10 grid pattern"),
-        ("test", "Calibration image for testing region extraction, scaling, and rotation"),
-    ];
-
-    for (i, (manifest, text)) in samples.iter().enumerate() {
-        index.add(IndexedAnnotation {
-            id: format!("{base_url}/annotation/content/{manifest}/{i}"),
-            text: text.to_string(),
-            motivation: "painting".to_string(),
-            target: format!("{base_url}/canvas/{manifest}/p1"),
-            manifest_id: manifest.to_string(),
-        });
-    }
-}
-
-/// Seed the activity store with initial Create activities for existing images.
-fn seed_activities(store: &ActivityStore, base_url: &str) {
-    store.record("Create", &format!("{base_url}/manifest/test"), "Manifest");
-    store.record(
-        "Create",
-        &format!("{base_url}/manifest/creation"),
-        "Manifest",
-    );
 }

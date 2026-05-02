@@ -1,5 +1,7 @@
 use std::sync::RwLock;
 
+use chrono::{SecondsFormat, Utc};
+
 use crate::types::{Activity, ActivityObject};
 
 /// In-memory store for change activities.
@@ -9,32 +11,85 @@ use crate::types::{Activity, ActivityObject};
 pub struct ActivityStore {
     activities: RwLock<Vec<Activity>>,
     page_size: usize,
+    base_url: String,
 }
 
 impl ActivityStore {
-    pub fn new(page_size: usize) -> Self {
+    /// Create a store. `base_url` is used to mint absolute IRIs for activity IDs.
+    pub fn new(page_size: usize, base_url: impl Into<String>) -> Self {
         Self {
             activities: RwLock::new(Vec::new()),
             page_size,
+            base_url: base_url.into(),
         }
     }
 
-    /// Record a new activity.
+    /// Record an activity that targets a single object (Create / Update / Delete / Add / Remove).
     pub fn record(&self, activity_type: &str, object_id: &str, object_type: &str) {
-        let activities = self.activities.read().expect("activity lock");
-        let id = format!("activity/{}", activities.len());
-        drop(activities);
-
         let activity = Activity {
-            id,
+            id: self.next_activity_id(),
             activity_type: activity_type.to_string(),
-            object: ActivityObject {
+            object: Some(ActivityObject {
                 id: object_id.to_string(),
                 object_type: object_type.to_string(),
-            },
-            end_time: current_timestamp(),
+            }),
+            target: None,
+            end_time: Some(current_timestamp()),
+            start_time: None,
+            actor: None,
+            summary: None,
         };
+        self.push(activity);
+    }
 
+    /// Record a `Move` activity (republishing a resource at a new URI).
+    pub fn record_move(
+        &self,
+        from_id: &str,
+        to_id: &str,
+        object_type: &str,
+    ) {
+        let activity = Activity {
+            id: self.next_activity_id(),
+            activity_type: "Move".to_string(),
+            object: Some(ActivityObject {
+                id: from_id.to_string(),
+                object_type: object_type.to_string(),
+            }),
+            target: Some(ActivityObject {
+                id: to_id.to_string(),
+                object_type: object_type.to_string(),
+            }),
+            end_time: Some(current_timestamp()),
+            start_time: None,
+            actor: None,
+            summary: None,
+        };
+        self.push(activity);
+    }
+
+    /// Record a `Refresh` activity (full re-issue of the stream). Uses `startTime`
+    /// per spec — sorts before subsequent resource activities.
+    pub fn record_refresh(&self) {
+        let activity = Activity {
+            id: self.next_activity_id(),
+            activity_type: "Refresh".to_string(),
+            object: None,
+            target: None,
+            end_time: None,
+            start_time: Some(current_timestamp()),
+            actor: None,
+            summary: None,
+        };
+        self.push(activity);
+    }
+
+    fn next_activity_id(&self) -> String {
+        let next = self.activities.read().expect("activity lock").len();
+        format!("{}/activity/{}", self.base_url.trim_end_matches('/'), next)
+    }
+
+    fn push(&self, activity: Activity) {
         self.activities
             .write()
             .expect("activity lock")
@@ -46,11 +101,11 @@ impl ActivityStore {
         self.activities.read().expect("activity lock").len()
     }
 
-    /// Number of pages.
+    /// Number of pages. Returns `0` for an empty store.
     pub fn page_count(&self) -> usize {
         let total = self.total();
         if total == 0 {
-            1
+            0
         } else {
             total.div_ceil(self.page_size)
         }
@@ -75,57 +130,7 @@ impl ActivityStore {
 }
 
 fn current_timestamp() -> String {
-    // Simple UTC timestamp without external crate
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-
-    // Convert to approximate ISO 8601 (good enough for demo)
-    let secs_per_day = 86400u64;
-    let days_since_epoch = now / secs_per_day;
-    let time_of_day = now % secs_per_day;
-
-    // Simple date calculation (not accounting for leap seconds)
-    let mut year = 1970u64;
-    let mut remaining_days = days_since_epoch;
-    loop {
-        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
-        if remaining_days < days_in_year {
-            break;
-        }
-        remaining_days -= days_in_year;
-        year += 1;
-    }
-
-    let days_in_months: [u64; 12] = if is_leap_year(year) {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-
-    let mut month = 0usize;
-    for (i, &days) in days_in_months.iter().enumerate() {
-        if remaining_days < days {
-            month = i;
-            break;
-        }
-        remaining_days -= days;
-    }
-
-    let day = remaining_days + 1;
-    let hours = time_of_day / 3600;
-    let minutes = (time_of_day % 3600) / 60;
-    let seconds = time_of_day % 60;
-
-    format!(
-        "{year:04}-{:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}Z",
-        month + 1
-    )
-}
-
-fn is_leap_year(year: u64) -> bool {
-    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
+    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
 #[cfg(test)]
@@ -134,7 +139,7 @@ mod tests {
 
     #[test]
     fn record_and_retrieve() {
-        let store = ActivityStore::new(10);
+        let store = ActivityStore::new(10, "http://localhost:8080");
         store.record("Create", "http://example.org/manifest/1", "Manifest");
         store.record("Update", "http://example.org/manifest/1", "Manifest");
 
@@ -146,8 +151,16 @@ mod tests {
     }
 
     #[test]
+    fn activity_id_is_absolute_iri() {
+        let store = ActivityStore::new(10, "http://localhost:8080");
+        store.record("Create", "http://example.org/m/1", "Manifest");
+        let page = store.get_page(0);
+        assert_eq!(page[0].id, "http://localhost:8080/activity/0");
+    }
+
+    #[test]
     fn pagination() {
-        let store = ActivityStore::new(2);
+        let store = ActivityStore::new(2, "http://localhost:8080");
         for i in 0..5 {
             store.record("Create", &format!("manifest/{i}"), "Manifest");
         }
@@ -160,11 +173,44 @@ mod tests {
     }
 
     #[test]
+    fn empty_store_has_zero_pages() {
+        let store = ActivityStore::new(10, "http://localhost:8080");
+        assert_eq!(store.page_count(), 0);
+    }
+
+    #[test]
     fn timestamp_format() {
         let ts = current_timestamp();
-        // Should be ISO 8601: YYYY-MM-DDTHH:MM:SSZ
+        // ISO 8601: YYYY-MM-DDTHH:MM:SSZ
         assert!(ts.ends_with('Z'));
         assert!(ts.contains('T'));
         assert_eq!(ts.len(), 20);
+    }
+
+    #[test]
+    fn move_helper_emits_target() {
+        let store = ActivityStore::new(10, "http://localhost:8080");
+        store.record_move(
+            "http://example.org/old",
+            "http://example.org/new",
+            "Manifest",
+        );
+        let activity = &store.get_page(0)[0];
+        assert_eq!(activity.activity_type, "Move");
+        assert_eq!(
+            activity.target.as_ref().unwrap().id,
+            "http://example.org/new"
+        );
+    }
+
+    #[test]
+    fn refresh_helper_uses_start_time() {
+        let store = ActivityStore::new(10, "http://localhost:8080");
+        store.record_refresh();
+        let activity = &store.get_page(0)[0];
+        assert_eq!(activity.activity_type, "Refresh");
+        assert!(activity.start_time.is_some());
+        assert!(activity.end_time.is_none());
+        assert!(activity.object.is_none());
     }
 }

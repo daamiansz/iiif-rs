@@ -45,17 +45,30 @@ impl SearchIndex {
     /// Search for annotations matching all query terms.
     /// Optionally filter by motivation.
     pub fn search(&self, query: &str, motivation: Option<&str>) -> Vec<IndexedAnnotation> {
+        let (results, _total) = self.search_paginated(query, motivation, 0, usize::MAX);
+        results
+    }
+
+    /// Search returning a page of results plus the total match count for paging.
+    ///
+    /// `offset` and `limit` are post-filter (motivation already applied) so
+    /// callers can build `partOf.total`, `first`, `last`, `next`, `prev` correctly.
+    pub fn search_paginated(
+        &self,
+        query: &str,
+        motivation: Option<&str>,
+        offset: usize,
+        limit: usize,
+    ) -> (Vec<IndexedAnnotation>, usize) {
         let terms = tokenize(query);
         if terms.is_empty() {
-            return Vec::new();
+            return (Vec::new(), 0);
         }
 
         let inverted = self.inverted.read().expect("inverted lock");
         let annotations = self.annotations.read().expect("annotations lock");
 
-        // Find indices that contain ALL terms (AND logic)
         let mut result_indices: Option<Vec<usize>> = None;
-
         for term in &terms {
             let matching = inverted.get(term).cloned().unwrap_or_default();
             result_indices = Some(match result_indices {
@@ -66,10 +79,9 @@ impl SearchIndex {
                 None => matching,
             });
         }
-
         let indices = result_indices.unwrap_or_default();
 
-        indices
+        let filtered: Vec<&IndexedAnnotation> = indices
             .into_iter()
             .filter_map(|i| {
                 let anno = annotations.get(i)?;
@@ -78,9 +90,19 @@ impl SearchIndex {
                         return None;
                     }
                 }
-                Some(anno.clone())
+                Some(anno)
             })
-            .collect()
+            .collect();
+
+        let total = filtered.len();
+        let page: Vec<IndexedAnnotation> = filtered
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .cloned()
+            .collect();
+
+        (page, total)
     }
 
     /// Find terms matching a prefix, with occurrence counts.

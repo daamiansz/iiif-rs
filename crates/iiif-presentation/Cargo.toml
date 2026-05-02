@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 iiif-core = { workspace = true }
+iiif-auth = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

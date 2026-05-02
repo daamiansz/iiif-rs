@@ -49,7 +49,18 @@ async fn manifest_handler(
         e
     })?;
 
-    let manifest = builder::build_manifest_for_image(&id, width, height, &state.config);
+    let is_protected = if state.config.auth.enabled {
+        state
+            .storage
+            .containing_directory(&id)
+            .map(|dir| state.config.auth.protected_dirs.iter().any(|p| p == &dir))
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
+    let manifest =
+        builder::build_manifest_for_image(&id, width, height, &state.config, is_protected);
 
     let json = serde_json::to_string(&manifest)
         .map_err(|e| IiifError::Internal(format!("JSON serialization error: {e}")))?;

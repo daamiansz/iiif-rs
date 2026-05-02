@@ -5,12 +5,13 @@ use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use serde::Deserialize;
+use serde_json::json;
 use tracing::info;
 
 use iiif_core::state::AppState;
 
 use crate::store::AuthStore;
-use crate::types::ProbeResult;
+use crate::types::AUTH_CONTEXT;
 
 /// Build the auth router. Requires `AuthStore` in axum Extension.
 pub fn router() -> Router<AppState> {
@@ -22,8 +23,36 @@ pub fn router() -> Router<AppState> {
 }
 
 // ---------------------------------------------------------------------------
+// Cookie attributes
+// ---------------------------------------------------------------------------
+
+/// Build security attributes for `Set-Cookie`. `Secure; SameSite=None` over
+/// HTTPS to allow the cross-site iframe token flow; plain `SameSite=Lax` on
+/// HTTP for local development convenience.
+fn cookie_attrs(base_url: &str) -> &'static str {
+    if base_url.starts_with("https://") {
+        "Path=/; HttpOnly; Secure; SameSite=None"
+    } else {
+        "Path=/; HttpOnly; SameSite=Lax"
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Login (Access Service)
 // ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct LoginQuery {
+    origin: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct LoginForm {
+    username: String,
+    password: String,
+    origin: Option<String>,
+}
 
 /// GET /auth/login — render the login form.
 async fn login_page(
@@ -56,19 +85,6 @@ button:hover {{ background: #1d4ed8; }}
     ))
 }
 
-#[derive(Deserialize)]
-struct LoginQuery {
-    origin: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[allow(dead_code)]
-struct LoginForm {
-    username: String,
-    password: String,
-    origin: Option<String>,
-}
-
 /// POST /auth/login — validate credentials, set cookie, close window.
 async fn login_submit(
     State(state): State<AppState>,
@@ -76,7 +92,6 @@ async fn login_submit(
 ) -> Response {
     let auth_config = &state.config.auth;
 
-    // Validate credentials
     let valid = auth_config
         .users
         .iter()
@@ -97,7 +112,6 @@ async fn login_submit(
         .into_response();
     }
 
-    // Create session
     let auth_store = state
         .auth
         .as_ref()
@@ -108,13 +122,15 @@ async fn login_submit(
 
     info!(user = %form.username, "User logged in");
 
-    // Set cookie and return page that closes itself
     let mut headers = HeaderMap::new();
     headers.insert(
         SET_COOKIE,
-        format!("{cookie_name}={session_id}; Path=/; HttpOnly; SameSite=Lax")
-            .parse()
-            .expect("valid cookie"),
+        format!(
+            "{cookie_name}={session_id}; {attrs}",
+            attrs = cookie_attrs(&state.config.server.base_url)
+        )
+        .parse()
+        .expect("valid cookie"),
     );
 
     let html = r#"<!DOCTYPE html>
@@ -140,62 +156,144 @@ struct TokenQuery {
 
 /// GET /auth/token — issue an access token based on the session cookie.
 ///
-/// Per IIIF Auth Flow 2.0, the response is a JSON object delivered via
-/// `postMessage` when loaded in an iframe.
+/// Returns HTTP 200 with an HTML page that calls `window.parent.postMessage(...)`
+/// with either an `AuthAccessToken2` (success) or `AuthAccessTokenError2` (failure).
 async fn token_handler(
     State(state): State<AppState>,
     Query(params): Query<TokenQuery>,
     req_headers: HeaderMap,
 ) -> Response {
-    let auth_store = match state
+    let message_id = params.message_id.clone().unwrap_or_default();
+
+    // Strict origin validation defends against XSS via `</script>` breakout in
+    // the inline-script template below. We accept only `scheme://host[:port]`
+    // with a conservative host charset; anything else is `invalidOrigin`.
+    // Error path is the only context where targetOrigin "*" is allowed (no token leaks).
+    let origin = match params.origin.as_deref() {
+        Some(o) if is_valid_origin(o) => o.to_string(),
+        _ => {
+            return token_post_message(
+                "*",
+                token_error_body(
+                    "invalidOrigin",
+                    &message_id,
+                    "Missing, empty, or malformed origin parameter.",
+                ),
+            );
+        }
+    };
+
+    let Some(auth_store) = state
         .auth
         .as_ref()
         .and_then(|a| a.downcast_ref::<AuthStore>())
-    {
-        Some(s) => s,
-        None => return json_error("authUnavailable", "Auth is not enabled"),
+    else {
+        return token_post_message(
+            &origin,
+            token_error_body("unavailable", &message_id, "Auth is not enabled on this server."),
+        );
     };
-    let cookie_name = &state.config.auth.cookie_name;
-    let message_id = params.message_id.unwrap_or_default();
 
-    // Extract session ID from cookie
+    let cookie_name = &state.config.auth.cookie_name;
     let session_id = extract_cookie(&req_headers, cookie_name);
 
     let body = match session_id.and_then(|sid| auth_store.issue_token(&sid)) {
         Some((token, expires_in)) => {
             info!("Issued access token");
-            serde_json::to_string(&serde_json::json!({
+            json!({
+                "@context": AUTH_CONTEXT,
+                "type": "AuthAccessToken2",
                 "accessToken": token,
                 "expiresIn": expires_in,
                 "messageId": message_id,
-            }))
-            .expect("valid json")
+            })
         }
-        None => serde_json::to_string(&serde_json::json!({
-            "type": "missingCredentials",
-            "description": "No valid session cookie found. Please log in first.",
-            "messageId": message_id,
-        }))
-        .expect("valid json"),
+        None => token_error_body(
+            "missingAspect",
+            &message_id,
+            "No valid session cookie found. Please log in first.",
+        ),
     };
 
-    let origin = params.origin.unwrap_or_else(|| "*".to_string());
+    token_post_message(&origin, body)
+}
 
-    // Return as HTML with postMessage script for iframe communication
+fn token_error_body(profile: &str, message_id: &str, note_text: &str) -> serde_json::Value {
+    json!({
+        "@context": AUTH_CONTEXT,
+        "type": "AuthAccessTokenError2",
+        "profile": profile,
+        "messageId": message_id,
+        "heading": {"en": ["Authentication failed"]},
+        "note": {"en": [note_text]},
+    })
+}
+
+fn token_post_message(target_origin: &str, body: serde_json::Value) -> Response {
+    // `target_origin` is either "*" (error path only) or already validated by
+    // `is_valid_origin` (success path). The body-JSON, however, includes user-
+    // controlled `messageId`; serde_json does not escape `/`, so a literal
+    // `</script>` inside any string would break out of the inline script tag.
+    //
+    // Defense: escape `</` to `<\/` in the JSON. This is semantically identical
+    // (`\/` is a valid JSON escape for `/`) but neutralises HTML parser breakout.
+    let body_json = serde_json::to_string(&body)
+        .expect("valid json")
+        .replace("</", "<\\/");
+
+    // `target_origin` has been validated, but apply the same `</` neutralisation
+    // for defence-in-depth in case validation ever loosens.
+    let safe_origin = target_origin.replace("</", "<\\/");
+
     let html = format!(
         r#"<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head><body>
 <script>
-  window.parent.postMessage({body}, "{origin}");
+  window.parent.postMessage({body_json}, "{safe_origin}");
 </script>
 </body></html>"#
     );
 
     let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_TYPE, "text/html".parse().expect("valid"));
+    headers.insert(CONTENT_TYPE, "text/html; charset=utf-8".parse().expect("valid"));
     headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().expect("valid"));
 
     (StatusCode::OK, headers, html).into_response()
+}
+
+/// Conservative origin validator: `scheme://host[:port]` only, ASCII host charset.
+/// Used to gate the inline-script `targetOrigin` substitution.
+fn is_valid_origin(s: &str) -> bool {
+    let rest = s
+        .strip_prefix("https://")
+        .or_else(|| s.strip_prefix("http://"));
+    let Some(rest) = rest else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+
+    let (host, port) = match rest.rsplit_once(':') {
+        Some((h, p)) if !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()) => (h, Some(p)),
+        _ => (rest, None),
+    };
+
+    if host.is_empty()
+        || !host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    {
+        return false;
+    }
+
+    if let Some(p) = port {
+        if p.len() > 5 {
+            return false;
+        }
+    }
+
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -203,75 +301,68 @@ async fn token_handler(
 // ---------------------------------------------------------------------------
 
 /// GET /auth/probe/{resource_id} — check if the bearer token grants access.
+///
+/// HTTP response is ALWAYS 200 per IIIF Auth Flow 2.0; the would-be access status
+/// is carried in the body's `status` field.
 async fn probe_handler(
     State(state): State<AppState>,
-    Path(resource_id): Path<String>,
+    Path(_resource_id): Path<String>,
     req_headers: HeaderMap,
 ) -> Response {
-    let auth_store = match state
+    let auth_store = state
         .auth
         .as_ref()
-        .and_then(|a| a.downcast_ref::<AuthStore>())
-    {
-        Some(s) => s,
-        None => return json_error("authUnavailable", "Auth is not enabled"),
-    };
-    let base = &state.config.server.base_url;
-    let probe_id = format!("{base}/auth/probe/{resource_id}");
+        .and_then(|a| a.downcast_ref::<AuthStore>());
 
-    // Extract Bearer token from Authorization header
     let token = req_headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
 
-    let (status, heading, note) = match token {
-        Some(t) if auth_store.validate_token(t) => (200u16, None, None),
-        Some(_) => (
+    let (status, heading, note) = match (auth_store, token) {
+        (Some(store), Some(t)) if store.validate_token(t) => (200u16, None, None),
+        (Some(_), Some(_)) => (
             401,
-            Some(serde_json::json!({"en": ["Authentication expired"]})),
-            Some(
-                serde_json::json!({"en": ["Your token is invalid or expired. Please log in again."]}),
-            ),
+            Some(json!({"en": ["Authentication expired"]})),
+            Some(json!({"en": ["Your token is invalid or expired. Please log in again."]})),
         ),
-        None => (
+        (Some(_), None) => (
             401,
-            Some(serde_json::json!({"en": ["Authentication required"]})),
-            Some(serde_json::json!({"en": ["Please log in to access this resource."]})),
+            Some(json!({"en": ["Authentication required"]})),
+            Some(json!({"en": ["Please log in to access this resource."]})),
+        ),
+        (None, _) => (
+            503,
+            Some(json!({"en": ["Authentication unavailable"]})),
+            Some(json!({"en": ["The authentication service is not configured on this server."]})),
         ),
     };
 
-    let result = ProbeResult {
-        id: probe_id,
-        result_type: "AuthProbeResult2".to_string(),
-        status,
-        heading,
-        note,
-    };
+    let mut body = json!({
+        "@context": AUTH_CONTEXT,
+        "type": "AuthProbeResult2",
+        "status": status,
+    });
+    if let Some(h) = heading {
+        body["heading"] = h;
+    }
+    if let Some(n) = note {
+        body["note"] = n;
+    }
 
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, "application/json".parse().expect("valid"));
     headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().expect("valid"));
 
-    let code = if status == 200 {
-        StatusCode::OK
-    } else {
-        StatusCode::UNAUTHORIZED
-    };
-
-    (
-        code,
-        headers,
-        serde_json::to_string(&result).expect("valid json"),
-    )
-        .into_response()
+    // ALWAYS HTTP 200 — auth state lives in the body's `status` field.
+    (StatusCode::OK, headers, body.to_string()).into_response()
 }
 
 // ---------------------------------------------------------------------------
 // Logout
 // ---------------------------------------------------------------------------
 
-/// GET /auth/logout — clear the session cookie.
+/// GET /auth/logout — clear session, cookie, and any tokens issued for it.
 async fn logout_handler(State(state): State<AppState>, req_headers: HeaderMap) -> Response {
     let cookie_name = &state.config.auth.cookie_name;
 
@@ -288,9 +379,12 @@ async fn logout_handler(State(state): State<AppState>, req_headers: HeaderMap) -
     let mut headers = HeaderMap::new();
     headers.insert(
         SET_COOKIE,
-        format!("{cookie_name}=; Path=/; HttpOnly; Max-Age=0")
-            .parse()
-            .expect("valid cookie"),
+        format!(
+            "{cookie_name}=; {attrs}; Max-Age=0",
+            attrs = cookie_attrs(&state.config.server.base_url)
+        )
+        .parse()
+        .expect("valid cookie"),
     );
 
     info!("User logged out");
@@ -316,16 +410,4 @@ fn extract_cookie(headers: &HeaderMap, cookie_name: &str) -> Option<String> {
                 }
             })
         })
-}
-
-fn json_error(error_type: &str, description: &str) -> Response {
-    let body = serde_json::json!({
-        "type": error_type,
-        "description": description,
-    });
-
-    let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_TYPE, "application/json".parse().expect("valid"));
-
-    (StatusCode::INTERNAL_SERVER_ERROR, headers, body.to_string()).into_response()
 }

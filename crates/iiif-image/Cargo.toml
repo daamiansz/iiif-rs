@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 iiif-core = { workspace = true }
+iiif-auth = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -17,3 +18,7 @@ image = { workspace = true }
 percent-encoding = { workspace = true }
 httpdate = { workspace = true }
 moka = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+tower = { workspace = true }

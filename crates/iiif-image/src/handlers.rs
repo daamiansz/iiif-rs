@@ -1,7 +1,7 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::SystemTime;
+
+use sha2::{Digest, Sha256};
 
 use axum::extract::{Path, State};
 use axum::http::header::{
@@ -109,12 +109,33 @@ async fn info_handler(
     })?;
     let _ = source; // dimensions extracted, bytes no longer needed here
 
+    // If the resource resides in a protected directory, embed the auth probe
+    // service so clients can discover the auth flow.
+    let auth_service = if state.config.auth.enabled {
+        let in_protected = state
+            .storage
+            .containing_directory(identifier.as_str())
+            .map(|dir| state.config.auth.protected_dirs.iter().any(|p| p == &dir))
+            .unwrap_or(false);
+        if in_protected {
+            Some(iiif_auth::build_probe_service_descriptor(
+                &state.config.server.base_url,
+                identifier.as_str(),
+            ))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let info = ImageInfo::build(
         &state.config.server.base_url,
         identifier.as_str(),
         width,
         height,
         &state.config.image,
+        auth_service,
     );
 
     let json = serde_json::to_string(&info)
@@ -210,6 +231,7 @@ async fn image_handler(
             &size,
             &rotation,
             &quality,
+            None,
         ));
     }
 
@@ -217,7 +239,11 @@ async fn image_handler(
     let tile_cache_dir = state.config.performance.tile_cache_dir.as_deref();
     if let Some(dir) = tile_cache_dir {
         let disk_path = disk_cache_path(dir, &cache_key, &format);
-        if let Ok(bytes) = std::fs::read(&disk_path) {
+        let read_result = {
+            let path = disk_path.clone();
+            tokio::task::spawn_blocking(move || std::fs::read(&path)).await
+        };
+        if let Ok(Ok(bytes)) = read_result {
             tracing::debug!("Disk cache hit: {}", disk_path.display());
             let bytes = Arc::new(bytes);
             if let Some(cache) = image_cache {
@@ -234,11 +260,12 @@ async fn image_handler(
                 &size,
                 &rotation,
                 &quality,
+                None,
             ));
         }
     }
 
-    let (source, _img_w, _img_h) = tokio::task::spawn_blocking(move || {
+    let (source, src_w, src_h) = tokio::task::spawn_blocking(move || {
         let bytes = storage.read_image(&id_str)?;
         let dims = pipeline::get_dimensions(&bytes)?;
         Ok::<_, IiifError>((bytes, dims.0, dims.1))
@@ -272,19 +299,21 @@ async fn image_handler(
         e
     })?;
 
-    // Store in memory cache
     let output = Arc::new(output);
     if let Some(cache) = image_cache {
         cache.insert(cache_key.clone(), Arc::clone(&output));
     }
 
-    // Store in disk tile cache
     if let Some(dir) = tile_cache_dir {
         let disk_path = disk_cache_path(dir, &cache_key, &format);
-        if let Some(parent) = disk_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let _ = std::fs::write(&disk_path, output.as_ref());
+        let bytes = Arc::clone(&output);
+        let _ = tokio::task::spawn_blocking(move || -> std::io::Result<()> {
+            if let Some(parent) = disk_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&disk_path, bytes.as_ref())
+        })
+        .await;
     }
 
     info!(
@@ -309,6 +338,7 @@ async fn image_handler(
         &size,
         &rotation,
         &quality,
+        Some((src_w, src_h)),
     ))
 }
 
@@ -324,38 +354,52 @@ fn build_image_response(
     size: &Size,
     rotation: &Rotation,
     quality: &Quality,
+    source_dims: Option<(u32, u32)>,
 ) -> Response {
-    let img_w = 0; // canonical URI is best-effort from cache hits
-    let img_h = 0;
-    let canonical = build_canonical_uri(&CanonicalParams {
-        base_url: &state.config.server.base_url,
-        identifier: raw_identifier,
-        region,
-        size,
-        rotation,
-        quality,
-        format,
-        img_w,
-        img_h,
-        config: &state.config.image,
-    });
-
     let mut headers = common_headers(etag, mtime);
     headers.insert(
         CONTENT_TYPE,
         format.content_type().parse().expect("valid header value"),
     );
-    let link_value = format!("<{PROFILE_URI}>;rel=\"profile\",<{canonical}>;rel=\"canonical\"");
+
+    // Canonical Link is MAY per spec — emit only when we have the source
+    // dimensions needed to resolve `pct:n` and `!w,h` to absolute pixel sizes.
+    // On cache hits we don't decode the source, so we omit the header rather
+    // than guess.
+    let link_value = match source_dims {
+        Some((img_w, img_h)) => {
+            let canonical = build_canonical_uri(&CanonicalParams {
+                base_url: &state.config.server.base_url,
+                identifier: raw_identifier,
+                region,
+                size,
+                rotation,
+                quality,
+                format,
+                img_w,
+                img_h,
+                config: &state.config.image,
+            });
+            format!("<{PROFILE_URI}>;rel=\"profile\",<{canonical}>;rel=\"canonical\"")
+        }
+        None => format!("<{PROFILE_URI}>;rel=\"profile\""),
+    };
     headers.insert(LINK, link_value.parse().expect("valid header value"));
 
     (StatusCode::OK, headers, output.to_vec()).into_response()
 }
 
 /// Build path for disk tile cache: `{dir}/{hash}.{ext}`
+///
+/// Uses SHA-256 truncated to 16 hex chars (64 bits) — deterministic across
+/// Rust versions, builds, and platforms, so cache files survive recompiles.
 fn disk_cache_path(dir: &str, cache_key: &str, format: &OutputFormat) -> std::path::PathBuf {
-    let mut hasher = DefaultHasher::new();
-    cache_key.hash(&mut hasher);
-    let hash = format!("{:016x}", hasher.finish());
+    let digest = Sha256::digest(cache_key.as_bytes());
+    let hash: String = digest
+        .iter()
+        .take(8)
+        .map(|b| format!("{b:02x}"))
+        .collect();
     std::path::PathBuf::from(dir).join(format!("{hash}.{format}"))
 }
 
@@ -364,17 +408,29 @@ fn disk_cache_path(dir: &str, cache_key: &str, format: &OutputFormat) -> std::pa
 // ---------------------------------------------------------------------------
 
 /// Compute a deterministic ETag from identifier, modification time, and request params.
+///
+/// Uses SHA-256 truncated to 16 hex chars (64 bits) — deterministic across
+/// Rust versions, builds, and platforms.
 fn compute_etag(identifier: &str, mtime: Option<SystemTime>, params: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    identifier.hash(&mut hasher);
+    let mut hasher = Sha256::new();
+    hasher.update(identifier.as_bytes());
+    hasher.update(b"\0");
     if let Some(t) = mtime {
-        t.duration_since(SystemTime::UNIX_EPOCH)
+        let secs = t
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
-            .as_secs()
-            .hash(&mut hasher);
+            .as_secs();
+        hasher.update(secs.to_le_bytes());
     }
-    params.hash(&mut hasher);
-    format!("\"{:016x}\"", hasher.finish())
+    hasher.update(b"\0");
+    hasher.update(params.as_bytes());
+    let digest = hasher.finalize();
+    let hex: String = digest
+        .iter()
+        .take(8)
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    format!("\"{hex}\"")
 }
 
 /// Check If-None-Match and If-Modified-Since against the current ETag/mtime.

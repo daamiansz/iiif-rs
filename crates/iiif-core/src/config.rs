@@ -130,3 +130,106 @@ impl Default for AppConfig {
         }
     }
 }
+
+/// Validate combinations of settings that would otherwise silently expose data
+/// or quietly downgrade security. Returns the first reason found (if any).
+///
+/// Called at startup; a non-`Ok` result must terminate the process — these are
+/// fail-fast conditions, not warnings.
+pub fn validate_security_config(config: &AppConfig) -> Result<(), String> {
+    if !config.auth.enabled && !config.auth.protected_dirs.is_empty() {
+        return Err(format!(
+            "auth.protected_dirs is set ({:?}) but auth.enabled = false; \
+             this would silently expose protected images. \
+             Either set auth.enabled = true or clear protected_dirs.",
+            config.auth.protected_dirs
+        ));
+    }
+
+    match (&config.server.tls_cert, &config.server.tls_key) {
+        (Some(_), None) | (None, Some(_)) => {
+            return Err(
+                "TLS misconfiguration: tls_cert and tls_key must both be set or both unset"
+                    .to_string(),
+            );
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_config_validates() {
+        assert!(validate_security_config(&AppConfig::default()).is_ok());
+    }
+
+    #[test]
+    fn protected_dirs_without_auth_enabled_fails_fast() {
+        let config = AppConfig {
+            auth: AuthConfig {
+                enabled: false,
+                protected_dirs: vec!["restricted".to_string()],
+                ..AuthConfig::default()
+            },
+            ..AppConfig::default()
+        };
+        let err = validate_security_config(&config).expect_err("must reject");
+        assert!(err.contains("protected_dirs"));
+        assert!(err.contains("enabled"));
+    }
+
+    #[test]
+    fn protected_dirs_with_auth_enabled_validates() {
+        let config = AppConfig {
+            auth: AuthConfig {
+                enabled: true,
+                protected_dirs: vec!["restricted".to_string()],
+                ..AuthConfig::default()
+            },
+            ..AppConfig::default()
+        };
+        assert!(validate_security_config(&config).is_ok());
+    }
+
+    #[test]
+    fn empty_protected_dirs_with_auth_disabled_validates() {
+        let config = AppConfig {
+            auth: AuthConfig {
+                enabled: false,
+                protected_dirs: Vec::new(),
+                ..AuthConfig::default()
+            },
+            ..AppConfig::default()
+        };
+        assert!(validate_security_config(&config).is_ok());
+    }
+
+    #[test]
+    fn cert_without_key_fails_fast() {
+        let mut config = AppConfig::default();
+        config.server.tls_cert = Some("cert.pem".to_string());
+        let err = validate_security_config(&config).expect_err("must reject");
+        assert!(err.contains("tls_cert") && err.contains("tls_key"));
+    }
+
+    #[test]
+    fn key_without_cert_fails_fast() {
+        let mut config = AppConfig::default();
+        config.server.tls_key = Some("key.pem".to_string());
+        let err = validate_security_config(&config).expect_err("must reject");
+        assert!(err.contains("tls_cert") && err.contains("tls_key"));
+    }
+
+    #[test]
+    fn both_tls_set_validates() {
+        let mut config = AppConfig::default();
+        config.server.tls_cert = Some("cert.pem".to_string());
+        config.server.tls_key = Some("key.pem".to_string());
+        assert!(validate_security_config(&config).is_ok());
+    }
+}
