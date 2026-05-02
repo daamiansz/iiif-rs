@@ -10,12 +10,12 @@ A complete [IIIF](https://iiif.io/) (International Image Interoperability Framew
 
 | Specification | Version | Status |
 |---|---|---|
-| [Image API](https://iiif.io/api/image/3.0/) | 3.0 | Level 2 compliance, validated |
-| [Presentation API](https://iiif.io/api/presentation/3.0/) | 3.0 | Validated |
-| [Authorization Flow API](https://iiif.io/api/auth/2.0/) | 2.0 | Active pattern |
-| [Content Search API](https://iiif.io/api/search/2.0/) | 2.0 | Full-text + autocomplete |
+| [Image API](https://iiif.io/api/image/3.0/) | 3.0 | Level 2 compliance; runtime-derived `extraFeatures`; UTF-8 identifiers |
+| [Presentation API](https://iiif.io/api/presentation/3.0/) | 3.0 | Manifest + Collection + dereferenceable Canvas/AnnotationPage/Annotation; typed Selectors, AnnotationCollection, placeholderCanvas, content negotiation (406 on unsupported Accept) |
+| [Authorization Flow API](https://iiif.io/api/auth/2.0/) | 2.0 | Active pattern; spec-compliant token bodies (`AuthAccessToken2` / `AuthAccessTokenError2`); probe always HTTP 200; XSS-hardened postMessage |
+| [Content Search API](https://iiif.io/api/search/2.0/) | 2.0 | Paginated AnnotationPage with `partOf.AnnotationCollection`; hit augmentation via `TextQuoteSelector`; OR-semantics `motivation`; ISO 8601 date range parsing; autocomplete |
 | [Content State API](https://iiif.io/api/content-state/1.0/) | 1.0 | Encode/decode/validate |
-| [Change Discovery API](https://iiif.io/api/discovery/1.0/) | 1.0 | Activity streams |
+| [Change Discovery API](https://iiif.io/api/discovery/1.0/) | 1.0 | OrderedCollection + Activity (Create/Update/Delete/Move/Refresh) |
 
 ### Highlights
 
@@ -83,7 +83,15 @@ Example: `http://localhost:8080/painting/full/800,/0/default.jpg`
 ```
 GET /manifest/{identifier}          — Manifest for an image
 GET /collection/top                 — Root collection of all images
+GET /canvas/{identifier}/p1         — Standalone Canvas (with @context)
+GET /annotation-page/{identifier}/p1 — Standalone AnnotationPage
+GET /annotation/{identifier}/p1-image — Standalone Annotation
+GET /range/{identifier}/{rid}       — Standalone Range (404 unless persisted)
 ```
+
+Content negotiation: `Accept: application/ld+json` (default, includes profile parameter), `Accept: application/json` (no profile), `Accept: text/plain` → 406. `Vary: accept` is emitted on every response.
+
+For protected images the Manifest body's `service[]` includes an `AuthProbeService2` descriptor with the full hierarchy `probe → access → [token, logout]`, and the auth API context is prepended to `@context`.
 
 ### Authorization Flow API 2.0
 
@@ -91,16 +99,28 @@ GET /collection/top                 — Root collection of all images
 GET  /auth/login                    — Login page
 POST /auth/login                    — Submit credentials
 GET  /auth/token                    — Token service (iframe/postMessage)
-GET  /auth/probe/{resource_id}      — Probe service (Bearer token)
+GET  /auth/probe/{resource_id}      — Probe service (always HTTP 200; status in body)
 GET  /auth/logout                   — Clear session
 ```
+
+The probe response shape is `{ "@context", "type": "AuthProbeResult2", "status": 200|401|... }`. The token service emits `AuthAccessToken2` (success) or `AuthAccessTokenError2` with one of the spec profile values (`invalidOrigin`, `missingAspect`, `invalidAspect`, `expiredAspect`, `invalidRequest`, `unavailable`). `Set-Cookie` carries `Secure; SameSite=None` over HTTPS, `HttpOnly; SameSite=Lax` over HTTP.
 
 ### Content Search API 2.0
 
 ```
-GET /search?q={terms}&motivation={m}       — Full-text search
-GET /autocomplete?q={prefix}               — Term suggestions
+GET /search?q={terms}&motivation={m1 m2}&date={iso8601-range}&user={u}&page=N
+GET /autocomplete?q={prefix}&motivation={m}&min={n}
 ```
+
+| Parameter | Notes |
+|---|---|
+| `q` | Space-separated terms; AND across terms |
+| `motivation` | Space-separated motivations; OR across values |
+| `date` | `YYYY-MM-DDThh:mm:ssZ/YYYY-MM-DDThh:mm:ssZ` (UTC `Z` mandatory); 400 on malformed |
+| `user` | Space-separated URIs; recognised, in-memory backend cannot honour |
+| `page` | Zero-based page index; page size 50 |
+
+The response is a paginated `AnnotationPage` with `partOf: AnnotationCollection { total, first, last }`, `next`/`prev`, and `startIndex`. A sibling `annotations[]` array carries hit augmentation: each hit Annotation has `motivation: "contextualizing"` and a `target` SpecificResource pinning the matched body via `TextQuoteSelector { prefix, exact, suffix }`. Hit IDs are stable across queries (SHA-256 of `source|term|position`).
 
 ### Content State API 1.0
 
@@ -236,7 +256,7 @@ Each IIIF specification is implemented as an independent crate with its own type
 
 ```bash
 cargo build                  # Compile
-cargo test                   # Run all tests (91 unit tests)
+cargo test                   # Run all tests (151 unit + integration)
 cargo clippy -- -D warnings  # Lint (zero warnings required)
 cargo fmt --check            # Check formatting
 cargo doc --open             # Generate documentation
