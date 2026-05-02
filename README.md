@@ -12,7 +12,7 @@ A complete [IIIF](https://iiif.io/) (International Image Interoperability Framew
 |---|---|---|
 | [Image API](https://iiif.io/api/image/3.0/) | 3.0 | Level 2 compliance; runtime-derived `extraFeatures`; UTF-8 identifiers |
 | [Presentation API](https://iiif.io/api/presentation/3.0/) | 3.0 | Manifest + Collection + dereferenceable Canvas/AnnotationPage/Annotation; typed Selectors, AnnotationCollection, placeholderCanvas, content negotiation (406 on unsupported Accept) |
-| [Authorization Flow API](https://iiif.io/api/auth/2.0/) | 2.0 | Active pattern; spec-compliant token bodies (`AuthAccessToken2` / `AuthAccessTokenError2`); probe always HTTP 200; XSS-hardened postMessage |
+| [Authorization Flow API](https://iiif.io/api/auth/2.0/) | 2.0 | All three patterns (`active` / `kiosk` / `external`); spec-compliant token bodies; probe always HTTP 200; tiered access with `substitute[]`; origin allowlist; XSS-hardened postMessage; logout actively purges tokens |
 | [Content Search API](https://iiif.io/api/search/2.0/) | 2.0 | Paginated AnnotationPage with `partOf.AnnotationCollection`; hit augmentation via `TextQuoteSelector`; OR-semantics `motivation`; ISO 8601 date range parsing; autocomplete |
 | [Content State API](https://iiif.io/api/content-state/1.0/) | 1.0 | Encode/decode/validate |
 | [Change Discovery API](https://iiif.io/api/discovery/1.0/) | 1.0 | OrderedCollection + Activity (Create/Update/Delete/Move/Refresh) |
@@ -180,10 +180,15 @@ root_path = "./images"
 
 [auth]
 enabled = false
-pattern = "active"
+pattern = "active"            # "active" | "kiosk" | "external"
 cookie_name = "iiif_access"
 token_ttl = 3600
 protected_dirs = ["restricted"]
+allowed_origins = []          # empty = any well-formed origin; non-empty = whitelist
+token_sweep_interval_secs = 300  # 0 = disable background token cleanup
+substitute_size = ""          # IIIF Image API size param for the degraded preview
+                              # served when access is denied (e.g. "^200,").
+                              # Empty = no substitute resource in probe response.
 
 [[auth.users]]
 username = "admin"
@@ -232,6 +237,65 @@ password = "changeme"
 
 No naming conventions or patterns — just move the file to the right folder.
 
+### Auth interaction patterns
+
+Set `auth.pattern` to one of:
+
+- **`active`** — full UI flow: user clicks "Login", credentials form opens in a new tab, postMessage delivers the token. Default. Works when third-party cookies are allowed.
+- **`kiosk`** — managed device: access service descriptor carries no UI strings. Same flow as active but the opened tab is expected to log in automatically (e.g. IP-restricted gallery kiosk).
+- **`external`** — ambient auth (IP allowlist, prior SSO): the access service descriptor omits `id` entirely; clients skip the login tab and go straight to the token service.
+
+The descriptor shape changes accordingly. The probe service URL and the token/logout sub-services stay the same in `active` and `kiosk`; `external` has no logout sub-service.
+
+### Tiered access (degraded substitute)
+
+When `auth.substitute_size = "^200,"` (or any IIIF size parameter), denied probes (`status: 401`) carry a `substitute[]` array pointing at a low-resolution version of the same image:
+
+```json
+{
+  "@context": "http://iiif.io/api/auth/2/context.json",
+  "type": "AuthProbeResult2",
+  "status": 401,
+  "substitute": [{
+    "id": "http://localhost:8080/secret/full/^200,/0/default.jpg",
+    "type": "Image", "format": "image/jpeg",
+    "label": {"en": ["Low-resolution preview"]}
+  }]
+}
+```
+
+The middleware exempts requests for that exact size from the auth check, so the substitute URL is reachable without a session cookie.
+
+### Origin allowlist
+
+Empty `auth.allowed_origins` keeps the v0.3.0b behaviour: any well-formed `?origin=` value passes. A non-empty list restricts the token service to exact-match origins; anything else returns `AuthAccessTokenError2 { profile: "invalidOrigin" }`.
+
+## Sidecar metadata
+
+Each image may carry a TOML sidecar at `<images>/<id>.toml` (or `<images>/<subdir>/<id>.toml`). The Manifest builder picks it up and merges fields:
+
+```toml
+label = "The Creation of the World"
+language = "en"             # default lang for label/summary; defaults to "none"
+summary = "Genesis depicted in a medieval manuscript illumination."
+rights = "https://creativecommons.org/licenses/by/4.0/"
+
+[[metadata]]
+label = "Date"
+value  = "13th century"
+
+[[metadata]]
+label = "Source"
+value  = "Bibliothèque nationale de France"
+
+[provider]
+id       = "http://example.org/bnf"
+label    = "Bibliothèque nationale de France"
+homepage = "https://www.bnf.fr/"
+```
+
+Without a sidecar the Manifest falls back to the filename stem as label and carries no metadata/provider/rights.
+
 ## Architecture
 
 ```
@@ -256,7 +320,7 @@ Each IIIF specification is implemented as an independent crate with its own type
 
 ```bash
 cargo build                  # Compile
-cargo test                   # Run all tests (151 unit + integration)
+cargo test                   # Run all tests (163 unit + integration)
 cargo clippy -- -D warnings  # Lint (zero warnings required)
 cargo fmt --check            # Check formatting
 cargo doc --open             # Generate documentation

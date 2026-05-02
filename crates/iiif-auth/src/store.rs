@@ -62,6 +62,20 @@ impl AuthStore {
             .remove(session_id);
     }
 
+    /// Remove a session AND every token issued for it. Used by `/auth/logout`
+    /// so that an active logout does not leave dangling tokens in the map
+    /// until the periodic sweeper catches them.
+    pub fn remove_session_and_tokens(&self, session_id: &str) {
+        self.sessions
+            .write()
+            .expect("session lock")
+            .remove(session_id);
+        self.tokens
+            .write()
+            .expect("token lock")
+            .retain(|_, info| info.session_id != session_id);
+    }
+
     /// Issue an access token for a valid session. Returns `(token, expires_in)`.
     pub fn issue_token(&self, session_id: &str) -> Option<(String, u64)> {
         // Verify session exists
@@ -145,5 +159,27 @@ mod tests {
     fn no_token_without_session() {
         let store = AuthStore::new(3600);
         assert!(store.issue_token("nonexistent").is_none());
+    }
+
+    #[test]
+    fn remove_session_and_tokens_clears_both() {
+        let store = AuthStore::new(3600);
+        let sid = store.create_session("alice");
+        let (t1, _) = store.issue_token(&sid).unwrap();
+        let (t2, _) = store.issue_token(&sid).unwrap();
+        // Issue a token for a different session — that one must NOT be purged.
+        let other = store.create_session("bob");
+        let (t3, _) = store.issue_token(&other).unwrap();
+
+        store.remove_session_and_tokens(&sid);
+
+        // Alice's tokens are gone (and the underlying session too).
+        assert!(!store.validate_token(&t1));
+        assert!(!store.validate_token(&t2));
+        assert!(store.validate_session(&sid).is_none());
+
+        // Bob's token survives.
+        assert!(store.validate_token(&t3));
+        assert!(store.validate_session(&other).is_some());
     }
 }

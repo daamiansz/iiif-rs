@@ -4,6 +4,7 @@ use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use percent_encoding::percent_decode_str;
 
 use iiif_core::config::AuthConfig;
 use iiif_core::storage::ImageStorage;
@@ -60,6 +61,25 @@ pub async fn check_access(request: Request, next: Next) -> Response {
         return next.run(request).await;
     }
 
+    // Tiered access: requests for the configured substitute size pass through
+    // without auth. The `substitute[]` URI advertised in the probe response
+    // points at this very route, so it MUST be reachable per spec §6.
+    //
+    // Match the full IIIF image-request shape (5 segments:
+    // {id}/{region}/{size}/{rotation}/{quality.format}). The size segment is
+    // percent-decoded before comparison so clients that escape `^`/`,` still
+    // hit the substitute path.
+    if !auth_config.substitute_size.is_empty()
+        && segments.len() == 5
+        && segments.get(1) == Some(&"full")
+    {
+        let raw = segments[2];
+        let decoded = percent_decode_str(raw).decode_utf8_lossy();
+        if decoded == auth_config.substitute_size.as_str() {
+            return next.run(request).await;
+        }
+    }
+
     // Protected resource — check for valid session cookie
     let session_valid = check_session_cookie(&request, cookie_name);
 
@@ -107,3 +127,49 @@ fn check_session_cookie(request: &Request, cookie_name: &str) -> bool {
 /// Newtype wrapper so we can insert the cookie name into axum extensions.
 #[derive(Clone)]
 pub struct CookieName(pub String);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cfg(substitute_size: &str) -> AuthConfig {
+        AuthConfig {
+            enabled: true,
+            pattern: "active".to_string(),
+            cookie_name: "iiif_access".to_string(),
+            token_ttl: 3600,
+            protected_dirs: vec!["restricted".to_string()],
+            users: vec![],
+            allowed_origins: vec![],
+            token_sweep_interval_secs: 0,
+            substitute_size: substitute_size.to_string(),
+        }
+    }
+
+    #[test]
+    fn substitute_size_matches_after_decode() {
+        let auth_config = cfg("^200,");
+        let cases = [
+            ("^200,", true),
+            ("%5E200,", true),
+            ("%5E200%2C", true),
+            ("200,", false),
+            ("^300,", false),
+        ];
+        for (segment, expect_match) in cases {
+            let decoded = percent_decode_str(segment).decode_utf8_lossy();
+            let matches = decoded == auth_config.substitute_size.as_str();
+            assert_eq!(
+                matches, expect_match,
+                "segment {segment:?} should match={expect_match}"
+            );
+        }
+    }
+
+    #[test]
+    fn empty_substitute_size_disables_exemption() {
+        let auth_config = cfg("");
+        // No string equality possible; the gating code short-circuits on empty.
+        assert!(auth_config.substitute_size.is_empty());
+    }
+}

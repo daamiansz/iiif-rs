@@ -55,6 +55,26 @@ pub struct AuthConfig {
     pub protected_dirs: Vec<String>,
     /// Simple user/password pairs for the "active" login flow.
     pub users: Vec<UserCredential>,
+    /// Whitelist of origins allowed to call the token service. Empty list =
+    /// any well-formed origin is accepted (back-compat with v0.3.0b). When
+    /// non-empty, the token service rejects origins not exactly listed here
+    /// with `AuthAccessTokenError2 { profile: "invalidOrigin" }`.
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
+    /// Background sweep interval (seconds) to purge expired tokens. `0` disables
+    /// the sweeper; the store still validates token TTL on each request.
+    #[serde(default = "default_token_sweep_interval")]
+    pub token_sweep_interval_secs: u64,
+    /// IIIF Image API size parameter for the substitute (degraded) image
+    /// served via the probe response when access is denied. Empty = no
+    /// substitute (probe returns plain 401). Example: `"^200,"` for a
+    /// 200-pixel-wide low-resolution preview.
+    #[serde(default)]
+    pub substitute_size: String,
+}
+
+fn default_token_sweep_interval() -> u64 {
+    300
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -72,6 +92,9 @@ impl Default for AuthConfig {
             token_ttl: 3600,
             protected_dirs: Vec::new(),
             users: Vec::new(),
+            allowed_origins: Vec::new(),
+            token_sweep_interval_secs: default_token_sweep_interval(),
+            substitute_size: String::new(),
         }
     }
 }

@@ -108,6 +108,7 @@ async fn info_handler(
             Some(iiif_auth::build_probe_service_descriptor(
                 &state.config.server.base_url,
                 identifier.as_str(),
+                iiif_auth::AuthPattern::from_config(&state.config.auth.pattern),
             ))
         } else {
             None

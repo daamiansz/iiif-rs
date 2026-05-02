@@ -27,4 +27,11 @@ pub trait ImageStorage: Send + Sync {
     /// Return the subdirectory name the image resides in, or `None` if at root.
     /// Used for directory-based access control. In-memory lookup, stays sync.
     fn containing_directory(&self, identifier: &str) -> Option<String>;
+
+    /// Read the sidecar metadata file for an image, if one exists. Default
+    /// returns `None` for backends that don't carry sidecars.
+    /// File convention: `<root_or_subdir>/<identifier>.toml`.
+    async fn read_sidecar(&self, _identifier: &str) -> Option<Vec<u8>> {
+        None
+    }
 }

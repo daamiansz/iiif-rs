@@ -1,0 +1,17 @@
+label = "The Creation of the World"
+language = "en"
+summary = "Genesis depicted in a medieval manuscript illumination."
+rights = "https://creativecommons.org/licenses/by/4.0/"
+
+[[metadata]]
+label = "Date"
+value = "13th century"
+
+[[metadata]]
+label = "Source"
+value = "Bibliothèque nationale de France"
+
+[provider]
+id = "http://example.org/bnf"
+label = "Bibliothèque nationale de France"
+homepage = "https://www.bnf.fr/"

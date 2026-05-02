@@ -7,6 +7,7 @@ use iiif_core::error::IiifError;
 use iiif_core::services::{ImageService3, Service};
 use iiif_core::storage::ImageStorage;
 
+use crate::sidecar::Sidecar;
 use crate::types::*;
 
 fn image_service3(id: &str) -> Service {
@@ -17,12 +18,15 @@ fn image_service3(id: &str) -> Service {
 ///
 /// `is_protected` controls whether the image's body carries an `AuthProbeService2`
 /// alongside `ImageService3`, and whether the auth context is prepended.
+/// `sidecar`, when present, supplies richer metadata (label, summary, rights,
+/// metadata pairs, provider) that overrides the filename-stem defaults.
 pub fn build_manifest_for_image(
     identifier: &str,
     img_width: u32,
     img_height: u32,
     config: &AppConfig,
     is_protected: bool,
+    sidecar: Option<&Sidecar>,
 ) -> Manifest {
     let base = &config.server.base_url;
     let manifest_id = format!("{base}/manifest/{identifier}");
@@ -38,7 +42,11 @@ pub fn build_manifest_for_image(
 
     let mut body_services = vec![image_service3(&image_service_id)];
     let context = if is_protected {
-        body_services.push(iiif_auth::build_probe_service_descriptor(base, identifier));
+        body_services.push(iiif_auth::build_probe_service_descriptor(
+            base,
+            identifier,
+            iiif_auth::AuthPattern::from_config(&config.auth.pattern),
+        ));
         ContextValue::Multiple(vec![
             iiif_auth::AUTH_CONTEXT.to_string(),
             "http://iiif.io/api/presentation/3/context.json".to_string(),
@@ -47,16 +55,25 @@ pub fn build_manifest_for_image(
         ContextValue::default()
     };
 
+    // Sidecar overrides defaults; missing fields fall through to filename stem.
+    let label = sidecar
+        .and_then(|s| s.label_map())
+        .unwrap_or_else(|| lang("none", identifier));
+    let summary = sidecar.and_then(|s| s.summary_map());
+    let rights = sidecar.and_then(|s| s.rights.clone());
+    let metadata = sidecar.and_then(|s| s.metadata_entries());
+    let provider = sidecar.and_then(|s| s.provider_entries());
+
     Manifest {
         context,
         id: manifest_id,
         resource_type: "Manifest".to_string(),
-        label: lang("none", identifier),
-        summary: None,
-        metadata: None,
-        rights: None,
+        label,
+        summary,
+        metadata,
+        rights,
         required_statement: None,
-        provider: None,
+        provider,
         thumbnail: Some(vec![ContentResource {
             id: thumb_id,
             resource_type: "Image".to_string(),

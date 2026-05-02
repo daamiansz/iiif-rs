@@ -148,6 +148,37 @@ impl ImageStorage for FilesystemStorage {
     fn containing_directory(&self, identifier: &str) -> Option<String> {
         self.find_containing_subdir(identifier)
     }
+
+    async fn read_sidecar(&self, identifier: &str) -> Option<Vec<u8>> {
+        // Same lookup precedence as image files: try the root, then immediate
+        // subdirectories. Sidecar filename is `<identifier>.toml`.
+        let candidates = std::iter::once(self.root_dir.clone()).chain({
+            std::fs::read_dir(&self.root_dir)
+                .ok()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|e| {
+                    let p = e.path();
+                    if p.is_dir() {
+                        Some(p)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+        });
+        for dir in candidates {
+            let path = dir.join(format!("{identifier}.toml"));
+            if path.is_file() {
+                if let Ok(bytes) = tokio::fs::read(&path).await {
+                    return Some(bytes);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]

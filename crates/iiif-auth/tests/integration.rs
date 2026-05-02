@@ -51,6 +51,7 @@ fn build_app() -> (Router, Arc<AuthStore>) {
                 username: "alice".to_string(),
                 password: "wonderland".to_string(),
             }],
+            ..AuthConfig::default()
         },
         ..AppConfig::default()
     };
@@ -279,6 +280,119 @@ async fn token_handler_does_not_break_out_of_script_tag_via_message_id() {
         1,
         "JSON body broke out of script tag via messageId: {html}"
     );
+}
+
+#[tokio::test]
+async fn token_rejects_origin_not_in_allowlist() {
+    // Build with a non-empty allowlist that does NOT include evil.com.
+    let config = AppConfig {
+        auth: AuthConfig {
+            enabled: true,
+            pattern: "active".to_string(),
+            cookie_name: "iiif_access".to_string(),
+            token_ttl: 3600,
+            protected_dirs: vec!["restricted".to_string()],
+            users: vec![UserCredential {
+                username: "alice".to_string(),
+                password: "wonderland".to_string(),
+            }],
+            allowed_origins: vec!["https://viewer.example.org".to_string()],
+            ..AuthConfig::default()
+        },
+        ..AppConfig::default()
+    };
+    let store = Arc::new(AuthStore::new(3600));
+    let state = AppState {
+        config: Arc::new(config),
+        storage: Arc::new(StubStorage),
+    };
+    let app = iiif_auth::router()
+        .layer(Extension(Arc::clone(&store)))
+        .with_state(state);
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/auth/token?messageId=m&origin=https://evil.com")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = body_string(resp).await;
+    assert!(html.contains(r#""profile":"invalidOrigin""#));
+}
+
+#[tokio::test]
+async fn probe_emits_substitute_when_configured() {
+    let config = AppConfig {
+        auth: AuthConfig {
+            enabled: true,
+            pattern: "active".to_string(),
+            cookie_name: "iiif_access".to_string(),
+            token_ttl: 3600,
+            protected_dirs: vec!["restricted".to_string()],
+            users: vec![UserCredential {
+                username: "alice".to_string(),
+                password: "wonderland".to_string(),
+            }],
+            substitute_size: "^200,".to_string(),
+            ..AuthConfig::default()
+        },
+        ..AppConfig::default()
+    };
+    let store = Arc::new(AuthStore::new(3600));
+    let state = AppState {
+        config: Arc::new(config),
+        storage: Arc::new(StubStorage),
+    };
+    let app = iiif_auth::router()
+        .layer(Extension(Arc::clone(&store)))
+        .with_state(state);
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/auth/probe/secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = serde_json::from_str(&body_string(resp).await).unwrap();
+    assert_eq!(body["status"], 401);
+    let subst = body["substitute"].as_array().unwrap();
+    assert_eq!(subst.len(), 1);
+    assert!(subst[0]["id"]
+        .as_str()
+        .unwrap()
+        .ends_with("/secret/full/^200,/0/default.jpg"));
+    assert_eq!(subst[0]["type"], "Image");
+}
+
+#[tokio::test]
+async fn logout_invalidates_existing_tokens() {
+    let (app, store) = build_app();
+    let session_id = store.create_session("alice");
+    let (token, _) = store.issue_token(&session_id).unwrap();
+    assert!(store.validate_token(&token));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/auth/logout")
+                .header("cookie", format!("iiif_access={session_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Active purge: token must no longer validate.
+    assert!(!store.validate_token(&token));
 }
 
 #[tokio::test]

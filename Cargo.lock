@@ -1028,6 +1028,7 @@ dependencies = [
  "async-trait",
  "axum",
  "iiif-core",
+ "percent-encoding",
  "rand",
  "serde",
  "serde_json",
@@ -1093,6 +1094,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "toml",
  "tower",
  "tracing",
 ]

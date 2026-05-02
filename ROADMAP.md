@@ -79,14 +79,14 @@ After v0.2.1 the implementation matches the literal spec. v0.3.0b fills in major
 - [x] Typed `Start { id, type, source?, selector? }` and `Range.supplementary: AnnotationCollectionRef`.
 - [x] Routes for `/canvas/{id}/{cid}`, `/annotation-page/{id}/{pid}`, `/annotation/{id}/{aid}`, `/range/{id}/{rid}` registered. Auto-generated manifests dereference Canvas/AnnotationPage/Annotation; Range always 404s (no `structures` until v0.6.0 manifest editor).
 - [x] Content negotiation — `application/ld+json` default with profile parameter, `application/json` fallback when explicitly accepted, 406 for unacceptable Accept. `Vary: accept` emitted.
-- [ ] Sidecar metadata — read `images/<name>.toml` and merge into Manifest (`label`, `metadata[]`, `summary`, `rights`, `provider`). Today every Manifest has only the filename stem as label. **Deferred to v0.3.0c** — needs storage-trait extension for non-image artifacts.
+- [x] Sidecar metadata — `images/<name>.toml` deserialised and merged: `label`, `summary`, `metadata[]`, `rights`, `provider` (Agent). Storage trait gains async `read_sidecar`.
 
-### Auth — second and third patterns
-- [ ] **`kiosk` pattern** — descriptor with `id`, no UI in opened tab.
-- [ ] **`external` pattern** — descriptor without `id`/`label`; ambient auth (IP, prior SSO).
-- [ ] **`AuthLogoutService2`** — endpoint that actively purges cookies AND token map (today `cleanup()` exists at `crates/iiif-auth/src/store.rs:101` but no scheduler invokes it).
-- [ ] **Tiered access** — populate `substitute[]` in probe response (low-res image when access denied).
-- [ ] **Origin allowlist** — validate `?origin=` against config-driven whitelist on access AND token services.
+### Auth — second and third patterns (v0.3.0c)
+- [x] **`kiosk` pattern** — descriptor with `id`, no UI strings.
+- [x] **`external` pattern** — descriptor without `id`, no logout sub-service; ambient auth.
+- [x] **`AuthLogoutService2`** — `remove_session_and_tokens()` purges both maps; iiif-server runs a configurable token sweeper (`token_sweep_interval_secs`).
+- [x] **Tiered access** — `substitute[]` in probe response when `auth.substitute_size` is set; auth middleware exempts the substitute URL so it stays reachable without a session.
+- [x] **Origin allowlist** — `auth.allowed_origins`; non-empty list = exact-match required, empty = any well-formed origin (back-compat).
 
 
 ## v0.4.0 — Storage Backends

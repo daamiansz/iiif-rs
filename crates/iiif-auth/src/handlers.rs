@@ -168,15 +168,20 @@ async fn token_handler(
     // the inline-script template below. We accept only `scheme://host[:port]`
     // with a conservative host charset; anything else is `invalidOrigin`.
     // Error path is the only context where targetOrigin "*" is allowed (no token leaks).
+    //
+    // When `auth.allowed_origins` is non-empty, the origin must additionally
+    // appear (exact match) in the whitelist. Empty list = any well-formed
+    // origin accepted (v0.3.0b compatibility).
+    let allowed = &state.config.auth.allowed_origins;
     let origin = match params.origin.as_deref() {
-        Some(o) if is_valid_origin(o) => o.to_string(),
+        Some(o) if is_valid_origin(o) && origin_is_allowed(o, allowed) => o.to_string(),
         _ => {
             return token_post_message(
                 "*",
                 token_error_body(
                     "invalidOrigin",
                     &message_id,
-                    "Missing, empty, or malformed origin parameter.",
+                    "Missing, empty, malformed, or non-allowlisted origin parameter.",
                 ),
             );
         }
@@ -249,6 +254,15 @@ fn token_post_message(target_origin: &str, body: serde_json::Value) -> Response 
     (StatusCode::OK, headers, html).into_response()
 }
 
+/// Check the origin against a config-driven whitelist. Empty whitelist = any
+/// (well-formed) origin allowed; non-empty = exact-match required.
+fn origin_is_allowed(origin: &str, allowlist: &[String]) -> bool {
+    if allowlist.is_empty() {
+        return true;
+    }
+    allowlist.iter().any(|allowed| allowed == origin)
+}
+
 /// Conservative origin validator: `scheme://host[:port]` only, ASCII host charset.
 /// Used to gate the inline-script `targetOrigin` substitution.
 fn is_valid_origin(s: &str) -> bool {
@@ -293,9 +307,9 @@ fn is_valid_origin(s: &str) -> bool {
 /// HTTP response is ALWAYS 200 per IIIF Auth Flow 2.0; the would-be access status
 /// is carried in the body's `status` field.
 async fn probe_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Extension(auth_store): Extension<Arc<AuthStore>>,
-    Path(_resource_id): Path<String>,
+    Path(resource_id): Path<String>,
     req_headers: HeaderMap,
 ) -> Response {
     let token = req_headers
@@ -329,6 +343,23 @@ async fn probe_handler(
         body["note"] = n;
     }
 
+    // Tiered access: when access is denied AND the server is configured with
+    // a substitute size, advertise a degraded version of the resource via
+    // `substitute[]`. Spec §6: client may render this when the user can't
+    // (yet) authenticate.
+    if status == 401 && !state.config.auth.substitute_size.is_empty() {
+        let base = &state.config.server.base_url;
+        let size = &state.config.auth.substitute_size;
+        body["substitute"] = json!([
+            {
+                "id": format!("{base}/{resource_id}/full/{size}/0/default.jpg"),
+                "type": "Image",
+                "format": "image/jpeg",
+                "label": {"en": ["Low-resolution preview"]}
+            }
+        ]);
+    }
+
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, "application/json".parse().expect("valid"));
     headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().expect("valid"));
@@ -350,7 +381,9 @@ async fn logout_handler(
     let cookie_name = &state.config.auth.cookie_name;
 
     if let Some(sid) = extract_cookie(&req_headers, cookie_name) {
-        auth_store.remove_session(&sid);
+        // Active purge: drop both the session AND every token issued for it.
+        // Spec §6 strongly recommends invalidating tokens on logout.
+        auth_store.remove_session_and_tokens(&sid);
     }
 
     let mut headers = HeaderMap::new();

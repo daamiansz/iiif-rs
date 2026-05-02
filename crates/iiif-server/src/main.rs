@@ -63,7 +63,26 @@ async fn main() {
             protected_dirs = ?config.auth.protected_dirs,
             "Authorization Flow enabled"
         );
-        Some(Arc::new(AuthStore::new(config.auth.token_ttl)))
+        let store = Arc::new(AuthStore::new(config.auth.token_ttl));
+
+        // Periodic sweep of expired tokens. The validator checks TTL on read,
+        // so the only purpose here is to bound memory for stores with high
+        // token-issuance rates. Disabled with sweep interval = 0.
+        let interval_secs = config.auth.token_sweep_interval_secs;
+        if interval_secs > 0 {
+            let sweeper = Arc::clone(&store);
+            tokio::spawn(async move {
+                let mut tick = tokio::time::interval(Duration::from_secs(interval_secs));
+                tick.tick().await; // skip the immediate first tick
+                loop {
+                    tick.tick().await;
+                    sweeper.cleanup();
+                }
+            });
+            info!(interval_secs, "Token sweeper running");
+        }
+
+        Some(store)
     } else {
         None
     };

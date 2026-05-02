@@ -12,6 +12,7 @@ use iiif_core::error::IiifError;
 use iiif_core::state::AppState;
 
 use crate::builder;
+use crate::sidecar::Sidecar;
 use crate::types::Standalone;
 
 const CONTENT_TYPE_JSONLD: &str =
@@ -95,6 +96,14 @@ fn is_protected(state: &AppState, id: &str) -> bool {
         .unwrap_or(false)
 }
 
+async fn load_sidecar(state: &AppState, id: &str) -> Option<Sidecar> {
+    state
+        .storage
+        .read_sidecar(id)
+        .await
+        .and_then(|bytes| Sidecar::from_toml_bytes(&bytes))
+}
+
 async fn manifest_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -102,12 +111,14 @@ async fn manifest_handler(
 ) -> Result<Response, IiifError> {
     let neg = negotiate(&req_headers)?;
     let (width, height) = read_dimensions(&state, &id).await?;
+    let sidecar = load_sidecar(&state, &id).await;
     let manifest = builder::build_manifest_for_image(
         &id,
         width,
         height,
         &state.config,
         is_protected(&state, &id),
+        sidecar.as_ref(),
     );
     let json = serde_json::to_string(&manifest)
         .map_err(|e| IiifError::Internal(format!("JSON serialization error: {e}")))?;
@@ -153,12 +164,14 @@ async fn canvas_handler(
         )));
     }
     let (width, height) = read_dimensions(&state, &id).await?;
+    let sidecar = load_sidecar(&state, &id).await;
     let manifest = builder::build_manifest_for_image(
         &id,
         width,
         height,
         &state.config,
         is_protected(&state, &id),
+        sidecar.as_ref(),
     );
     let canvas = manifest
         .items
@@ -184,12 +197,14 @@ async fn annotation_page_handler(
         )));
     }
     let (width, height) = read_dimensions(&state, &id).await?;
+    let sidecar = load_sidecar(&state, &id).await;
     let manifest = builder::build_manifest_for_image(
         &id,
         width,
         height,
         &state.config,
         is_protected(&state, &id),
+        sidecar.as_ref(),
     );
     let page = manifest
         .items
@@ -217,12 +232,14 @@ async fn annotation_handler(
         )));
     }
     let (width, height) = read_dimensions(&state, &id).await?;
+    let sidecar = load_sidecar(&state, &id).await;
     let manifest = builder::build_manifest_for_image(
         &id,
         width,
         height,
         &state.config,
         is_protected(&state, &id),
+        sidecar.as_ref(),
     );
     let annotation = manifest
         .items
